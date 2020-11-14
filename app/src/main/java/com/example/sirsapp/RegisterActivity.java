@@ -10,6 +10,10 @@ import android.widget.EditText;
 import android.widget.Toast;
 
 import java.security.KeyPair;
+import java.security.PublicKey;
+import java.security.cert.Certificate;
+
+import javax.crypto.SecretKey;
 
 public class RegisterActivity extends AppCompatActivity {
 
@@ -27,18 +31,24 @@ public class RegisterActivity extends AppCompatActivity {
         if (!validateUsername(username))
             return;
 
-        //generate pubK and privK
-        KeyPair keys = Criptography.generateKeyPair();
-        if (keys == null) {
-            Toast.makeText(this, "An error occurred, please try again", Toast.LENGTH_LONG).show();
-            return ;
+        try {
+            //generate pubK and privK
+            KeyPair keys = Criptography.getKeyPair();
+
+            //TODO-generate CSR for pubK(need to communicate with CA)
+
+            //get auth server pubK from certificate
+            PublicKey authKey = Criptography.getKeyFromCertificate(view.getContext(), R.raw.Authcert);
+
+            //generate secK
+            SecretKey secretK = Criptography.getSecretKey();
+
+        } catch (Exception e) {
+            outputError("An error occurred, please try again");
+            return;
         }
 
-        //generate certificate for pubK
 
-        //get auth server pubK from certificate
-
-        //generate secK
 
         //calculate {secK || ts || username || sha256(secK, ts, username)}authPubK +  {appCert || {sha256(appCert)}privK}secK
 
@@ -49,14 +59,16 @@ public class RegisterActivity extends AppCompatActivity {
         //generate DH params
 
         //calculate {ts || username || {sha256(ts, username)}privK}secK
+
+        //send message
     }
 
     private boolean validateUsername(String username) {
         if (username == null || username.equals("")) {
-            Toast.makeText(this, "Please specify a username", Toast.LENGTH_LONG).show();
+            outputError("Please specify a username");
             return false;
         } else if (!username.matches("[A-Za-z0-9_]+") || username.length() > 20) {
-            Toast.makeText(this, "Invalid username", Toast.LENGTH_LONG).show();
+            outputError("Invalid username");
             return false;
         }
         return true;
@@ -68,5 +80,9 @@ public class RegisterActivity extends AppCompatActivity {
             InputMethodManager imm = (InputMethodManager) getSystemService(Context.INPUT_METHOD_SERVICE);
             imm.hideSoftInputFromWindow(view.getWindowToken(), 0);
         }
+    }
+
+    private void outputError(String s) {
+        Toast.makeText(this, s, Toast.LENGTH_LONG).show();
     }
 }
