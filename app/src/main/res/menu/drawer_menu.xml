@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<menu xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <group >
+        <item
+            android:id="@+id/authenticationCodeFragment"
+            android:title="@string/authentication" />
+        <item
+            android:id="@+id/authorizationFragment"
+            android:title="@string/authorization" />
+        <item
+            android:id="@+id/safeLocalFragment"
+            android:title="@string/safe_local" />
+    </group>
+</menu>

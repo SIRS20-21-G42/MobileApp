@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<navigation xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:id="@+id/nav_layout"
+    app:startDestination="@id/authenticationCodeFragment">
+
+    <fragment
+        android:id="@+id/authenticationCodeFragment"
+        android:name="com.example.sirsapp.authenticationCodeFragment"
+        android:label="fragment_authentication_code"
+        tools:layout="@layout/fragment_authentication_code" />
+    <fragment
+        android:id="@+id/safeLocalFragment"
+        android:name="com.example.sirsapp.safeLocalFragment"
+        android:label="fragment_safe_local"
+        tools:layout="@layout/fragment_safe_local" />
+    <fragment
+        android:id="@+id/authorizationFragment"
+        android:name="com.example.sirsapp.authorizationFragment"
+        android:label="fragment_authorization"
+        tools:layout="@layout/fragment_authorization" />
+</navigation>
