@@ -47,22 +47,18 @@ import javax.crypto.spec.SecretKeySpec;
 
 public class Criptography {
 
-    private static final int ASYM_KEY_SIZE = 2048;
-    private static final int SYM_KEY_SIZE = 256;
     public static final String ANDROID_KEY_STORE = "AndroidKeyStore";
-    public static final String APP_SECRETK_ALIAS = "app_secretK";
-    private static final String PRIVATE_KEY_FILE = "priv.key";
-    private static final String PUBLIC_KEY_FILE = "pub.key";
-    public static final String APP_CSR_FILE = "app.csr";
     public static final String APP_CERT_FILE = "app.crt";
-    private static final int TAG_BITS = 128;
-    private static final int BLOCK_SIZE = 12; // GCM has block-size of 12 bytes
+    public static final String APP_CSR_FILE = "app.csr";
+    public static final String APP_SECRETK_ALIAS = "app_secretK";
+    private static final int ASYM_KEY_SIZE = 2048;
     private static final String AUTH_SHARED_KEY_FILE = "auth_shared.key";
-
-
-    public Criptography(){
-
-    }
+    private static final int BLOCK_SIZE = 12; // GCM has block-size of 12 bytes
+    private static final String PUBLIC_KEY_FILE = "pub.key";
+    private static final String PRIVATE_KEY_FILE = "priv.key";
+    private static final int SYM_KEY_SIZE = 256;
+    private static final int TAG_BITS = 128;
+    public static final String TOTP_ALIAS = "TOTPSecret";
 
     /**
      * Generates a key pair and stores both keys in separate files
@@ -126,7 +122,26 @@ public class Criptography {
 
         //Generate secretK
         return keyGen.generateKey();
+    }
 
+    public static byte[] getTOTPSecret() throws Exception {
+        KeyStore keyStore = KeyStore.getInstance(ANDROID_KEY_STORE);
+        keyStore.load(null);
+        SecretKey secret = (SecretKey) keyStore.getKey(TOTP_ALIAS, null);
+
+        if (secret != null) {
+            return secret.getEncoded();
+        }
+
+        return null;
+    }
+
+    public static void saveTOTPSecret(String key) throws Exception {
+        SharedSecret secret = new SharedSecret(key);
+
+        KeyStore keyStore = KeyStore.getInstance(ANDROID_KEY_STORE);
+        keyStore.load(null);
+        keyStore.setKeyEntry(TOTP_ALIAS, secret, null, null);
     }
 
     /**
