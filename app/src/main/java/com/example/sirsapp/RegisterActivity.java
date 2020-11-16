@@ -3,7 +3,6 @@ package com.example.sirsapp;
 import android.content.Context;
 import android.content.Intent;
 import android.os.Bundle;
-import android.os.StrictMode;
 import android.view.View;
 import android.view.inputmethod.InputMethodManager;
 import android.widget.EditText;
@@ -24,20 +23,36 @@ import java.security.cert.Certificate;
 import java.util.Base64;
 import java.util.Calendar;
 import java.util.Date;
+import java.util.Timer;
+import java.util.TimerTask;
 
 import javax.crypto.SecretKey;
 
 public class RegisterActivity extends AppCompatActivity {
+    private Cryptography crypto;
+    private Communications comms;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
+        try {
+            this.crypto = new Cryptography(getApplicationContext());
+        } catch (Exception e) {
+            // FIXME: Properly handle exception
+            e.printStackTrace();
+            throw new RuntimeException("Couldn't initialize crypto instance");
+        }
+
+        this.comms = new Communications(this.crypto);
+
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_register);
-        StrictMode.ThreadPolicy policy = new StrictMode.ThreadPolicy.Builder().permitNetwork().build();
-        StrictMode.setThreadPolicy(policy);
     }
 
-    public void registerUser(View view){
+    public void registerUser(View view) {
+        new Thread(() -> { registerAsyncUser(view); }).start();
+    }
+
+    public void registerAsyncUser(View view){
 
         closeKeyboard();
 
@@ -46,16 +61,16 @@ public class RegisterActivity extends AppCompatActivity {
             return;
         try {
             // get pubK and privK of the app
-            KeyPair keys = Criptography.getKeyPair(getApplicationContext());
+            KeyPair keys = this.crypto.getKeyPair();
 
-            Certificate caCert = Criptography.readCertificateFromResource(getApplicationContext(), R.raw.ca);
+            Certificate caCert = this.crypto.readCertificateFromResource(R.raw.ca);
 
             // generate CSR for pubK and get certificate(need to communicate with CA)
-            if (!checkFile(Criptography.APP_CSR_FILE))
-                Criptography.saveToFileNoEncryption(getApplicationContext(), Criptography.APP_CSR_FILE, Criptography.generateCSR(username, keys));
+            if (!checkFile(Cryptography.APP_CSR_FILE))
+                this.crypto.saveToFileNoEncryption(Cryptography.APP_CSR_FILE, Cryptography.generateCSR(username, keys));
 
-            if (!checkFile(Criptography.APP_CERT_FILE)) {
-                boolean success = Communications.getCertificateFromCA(getApplicationContext(), Criptography.APP_CSR_FILE, caCert);
+            if (!checkFile(Cryptography.APP_CERT_FILE)) {
+                boolean success = this.comms.getCertificateFromCA(Cryptography.APP_CSR_FILE, caCert);
                 if (!success) {
                     outputError("An error occurred, please try again");
                     return;
@@ -63,13 +78,13 @@ public class RegisterActivity extends AppCompatActivity {
             }
 
             // get auth server pubK from certificate
-            Certificate authCert = Criptography.readCertificateFromResource(getApplicationContext(), R.raw.auth);
+            Certificate authCert = this.crypto.readCertificateFromResource(R.raw.auth);
 
             // generate secK for auth communication
-            SecretKey secretK = Criptography.generateSecretKey();
+            SecretKey secretK = Cryptography.generateSecretKey();
 
             // get app certificate
-            Certificate appCert = Criptography.readCertificateFromFile(getApplicationContext(), Criptography.APP_CERT_FILE);
+            Certificate appCert = this.crypto.readCertificateFromFile(Cryptography.APP_CERT_FILE);
 
             // calculate timestamp for messages
             long ts = System.currentTimeMillis() / 1000L;
@@ -81,7 +96,7 @@ public class RegisterActivity extends AppCompatActivity {
             Socket connection = Communications.newAuthConnection();
 
             // Send message to Auth
-            JSONObject response = Communications.sendMesageToAuth(connection, message, false);
+            JSONObject response = Communications.sendMessageToAuth(connection, message, false);
 
 
             BigInteger paramB = handleFirstResponse(response, secretK, authCert.getPublicKey());
@@ -95,7 +110,7 @@ public class RegisterActivity extends AppCompatActivity {
 
 
             // Send message to Auth
-            response = Communications.sendMesageToAuth(connection, message, true);
+            response = Communications.sendMessageToAuth(connection, message, true);
 
 
             // validate server response
@@ -104,7 +119,7 @@ public class RegisterActivity extends AppCompatActivity {
                 return;
             }
 
-            Criptography.saveToFileNoEncryption(getApplicationContext(), "username.txt", username.getBytes());
+            this.crypto.saveToFileNoEncryption("username.txt", username.getBytes());
 
             Intent intent = new Intent(this, DrawerActivity.class);
 
@@ -115,7 +130,6 @@ public class RegisterActivity extends AppCompatActivity {
             outputError("An error occurred, please try again");
             System.out.println("ERROR!");
             e.printStackTrace();
-            return;
         }
     }
 
@@ -144,21 +158,21 @@ public class RegisterActivity extends AppCompatActivity {
         part1Json.put("secretKey", secretKEnc);
 
         // cipher part1 with authPubK
-        byte[] messageCiphered = Criptography.cipherRSA(part1Json.toString().getBytes(), authKey);
+        byte[] messageCiphered = Cryptography.cipherRSA(part1Json.toString().getBytes(), authKey);
         requestContentJson.put("part1", Base64.getEncoder().encodeToString(messageCiphered));
 
         // calculate appCert || {sha256(secK, ts, username)}appPrivK
         JSONObject part2Json = new JSONObject();
         part2Json.put("certificate", Base64.getEncoder().encodeToString(appCert.getEncoded()));
         String stringToSign = ts + username + secretKEnc;
-        byte[] signatureMessage = Criptography.sign(stringToSign.getBytes(), privKey);
+        byte[] signatureMessage = Cryptography.sign(stringToSign.getBytes(), privKey);
         part2Json.put("signature", Base64.getEncoder().encodeToString(signatureMessage));
 
         // generate new iv
-        byte[] iv = Criptography.generateIv();
+        byte[] iv = Cryptography.generateIV();
 
         // cipher part2 with secK and put on request
-        byte[] part2Encoded = Criptography.cipherAES(part2Json.toString().getBytes(), secK, iv);
+        byte[] part2Encoded = Cryptography.cipherAES(part2Json.toString().getBytes(), secK, iv);
         requestContentJson.put("part2", Base64.getEncoder().encodeToString(part2Encoded));
 
         // add iv to request
@@ -184,7 +198,7 @@ public class RegisterActivity extends AppCompatActivity {
         byte[] requestIv = Base64.getDecoder().decode(response.getString("iv"));
 
         // decode content
-        byte[] contentDecoded = Criptography.decipherAES(Base64.getDecoder().decode(contentEncoded), secK, requestIv);
+        byte[] contentDecoded = Cryptography.decipherAES(Base64.getDecoder().decode(contentEncoded), secK, requestIv);
 
         JSONObject content = new JSONObject(new String(contentDecoded, StandardCharsets.UTF_8));
 
@@ -200,7 +214,7 @@ public class RegisterActivity extends AppCompatActivity {
         if (!success)
             return null;
 
-        return Criptography.generateDiffieHellmanParam(getApplicationContext(), new BigInteger(paramA), new BigInteger(n), new BigInteger(g));
+        return this.crypto.generateDiffieHellmanParam(new BigInteger(paramA), new BigInteger(n), new BigInteger(g));
     }
 
     /**
@@ -227,14 +241,14 @@ public class RegisterActivity extends AppCompatActivity {
 
         // calculate {sha256(ts, username, B)}privK
         String stringToSign = ts + username + paramB;
-        byte[] signatureMessage = Criptography.sign(stringToSign.getBytes(), privKey);
+        byte[] signatureMessage = Cryptography.sign(stringToSign.getBytes(), privKey);
         content.put("signature", Base64.getEncoder().encodeToString(signatureMessage));
 
         // generate new iv
-        byte[] iv = Criptography.generateIv();
+        byte[] iv = Cryptography.generateIV();
 
         // cipher content with secK
-        byte[] messageCiphered = Criptography.cipherAES(content.toString().getBytes(), secK, iv);
+        byte[] messageCiphered = Cryptography.cipherAES(content.toString().getBytes(), secK, iv);
         requestContentJson.put("content", Base64.getEncoder().encodeToString(messageCiphered));
 
         // add iv to request
@@ -259,7 +273,7 @@ public class RegisterActivity extends AppCompatActivity {
         byte[] requestIv = Base64.getDecoder().decode(response.getString("iv"));
 
         // decode content
-        byte[] contentDecoded = Criptography.decipherAES(Base64.getDecoder().decode(contentEncoded), secK, requestIv);
+        byte[] contentDecoded = Cryptography.decipherAES(Base64.getDecoder().decode(contentEncoded), secK, requestIv);
 
         JSONObject content = new JSONObject(new String(contentDecoded, StandardCharsets.UTF_8));
 
@@ -288,7 +302,7 @@ public class RegisterActivity extends AppCompatActivity {
      */
     private boolean checkRequest(String stringToVerify, String signature, String ts, PublicKey authPubkey) throws Exception {
         // verify signature
-        boolean success = Criptography.verify(stringToVerify.getBytes(), Base64.getDecoder().decode(signature), authPubkey);
+        boolean success = Cryptography.verify(stringToVerify.getBytes(), Base64.getDecoder().decode(signature), authPubkey);
         if (!success)
             return false;
 
@@ -308,10 +322,7 @@ public class RegisterActivity extends AppCompatActivity {
         Date bottomLimit = c.getTime();
 
         // verify ts limits
-        if (upperLimit.before(reqTs) || bottomLimit.after(reqTs)){
-            return false;
-        }
-        return true;
+        return !upperLimit.before(reqTs) && !bottomLimit.after(reqTs);
     }
 
     /**

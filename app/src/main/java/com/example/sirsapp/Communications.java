@@ -1,7 +1,5 @@
 package com.example.sirsapp;
 
-import android.content.Context;
-
 import org.json.JSONObject;
 
 import java.io.BufferedReader;
@@ -21,8 +19,9 @@ import javax.net.ssl.SSLContext;
 import javax.net.ssl.TrustManagerFactory;
 
 public class Communications {
+    private final Cryptography crypto;
 
-    private static final String HOSTNAME = "192.168.1.78";
+    private static final String HOSTNAME = "192.168.1.70";
     private static final int AUTH_PORT = 1337;
     private static final String attachmentName = "csr";
     private static final String attachmentFileName = "app.csr";
@@ -30,8 +29,8 @@ public class Communications {
     private static final String twoHyphens = "--";
     private static final String boundary =  "*****";
 
-    public Communications(){
-
+    public Communications(Cryptography crypto) {
+        this.crypto = crypto;
     }
 
     /**
@@ -44,7 +43,6 @@ public class Communications {
         return new Socket(HOSTNAME, AUTH_PORT);
     }
 
-
     /**
      * Sends the json message to auth, receives the response and closes the connection if desired
      *
@@ -54,7 +52,7 @@ public class Communications {
      * @return json with the response from auth
      * @throws Exception for now throws all the occurred exceptions
      */
-    public static JSONObject sendMesageToAuth(Socket socket, JSONObject request, boolean closeConnection) throws Exception {
+    public static JSONObject sendMessageToAuth(Socket socket, JSONObject request, boolean closeConnection) throws Exception {
         DataOutputStream outStream = new DataOutputStream(socket.getOutputStream());
 
         //Send request
@@ -74,15 +72,14 @@ public class Communications {
     /**
      * Sends a CSR to the CA and gets a certificate, storing it in a file
      *
-     * @param context: context of the application
      * @param csrFilename: name of the file containing the CSR
      * @param caCert: CA certificate
      * @return true if the certificate was received correctly
      * @throws Exception for now throws all the occurred exceptions
      */
-    public static boolean getCertificateFromCA(Context context, String csrFilename, Certificate caCert) throws Exception {
+    public boolean getCertificateFromCA(String csrFilename, Certificate caCert) throws Exception {
         // create keystore with ca certificate to use for connection
-        KeyStore ks = createKeyStore(caCert);
+        KeyStore ks = Cryptography.createKeyStore(caCert);
         if (ks == null)
             return false;
 
@@ -92,7 +89,7 @@ public class Communications {
             return false;
 
         // send the request to the CA
-        sendCARequest(context, csrFilename, conn);
+        sendCARequest(csrFilename, conn);
 
         // check request response code
         int responseCode = conn.getResponseCode();
@@ -100,26 +97,9 @@ public class Communications {
             return false;
 
         // get response from the CA
-        getCAResponse(context, conn);
+        getCAResponse(conn);
         return true;
 
-    }
-
-    /**
-     * Creates a key store and inserts the certificate in it
-     *
-     * @param caCert: CA certificate
-     * @return created keystore
-     * @throws Exception for now throws all the occurred exceptions
-     */
-    private static KeyStore createKeyStore(Certificate caCert) throws Exception {
-        KeyStore ks = KeyStore.getInstance(KeyStore.getDefaultType());
-        ks.load(null);
-
-        //setting the certificate of the ca
-        ks.setEntry("caCert", new KeyStore.TrustedCertificateEntry(caCert), null);
-
-        return ks;
     }
 
     /**
@@ -138,7 +118,7 @@ public class Communications {
         SSLContext cont = SSLContext.getInstance("TLS");
         cont.init(null, tmf.getTrustManagers(), null);
 
-        URL url = new URL("https://" + HOSTNAME + ":8080/sign");
+        URL url = new URL("https://" + HOSTNAME + ":8081/sign");
         HttpsURLConnection httpsConn = (HttpsURLConnection) url.openConnection();
         httpsConn.setSSLSocketFactory(cont.getSocketFactory());
 
@@ -152,12 +132,11 @@ public class Communications {
     /**
      * Sends a request to the CA
      *
-     * @param context: context of the application
      * @param csrFilename: name of the file containing the CSR
      * @param httpsConn: connection object with the connection parameters setup
      * @throws Exception for now throws all the occurred exceptions
      */
-    private static void sendCARequest(Context context, String csrFilename, HttpsURLConnection httpsConn) throws Exception {
+    private void sendCARequest(String csrFilename, HttpsURLConnection httpsConn) throws Exception {
         // Setting the headers of the request
         httpsConn.setRequestMethod("POST");
         httpsConn.setRequestProperty("Connection", "Keep-Alive");
@@ -175,7 +154,7 @@ public class Communications {
         request.writeBytes(crlf);
 
         // Reading the file and writing the request
-        byte [] csr = Criptography.getFromFileNoEncryption(context, csrFilename);
+        byte [] csr = this.crypto.getFromFileNoEncryption(csrFilename);
         request.write(csr);
 
         // End of the request
@@ -190,12 +169,11 @@ public class Communications {
     /**
      * Gets the response from the CA and stores the certificate in a file if successful request
      *
-     * @param context: context of the application
      * @param httpsConn: connection created with the CA
      * @throws Exception for now throws all the occurred exceptions
      */
-    private static void getCAResponse(Context context, HttpsURLConnection httpsConn) throws Exception {
-        String fileName = Criptography.APP_CERT_FILE;
+    private void getCAResponse(HttpsURLConnection httpsConn) throws Exception {
+        String fileName = Cryptography.APP_CERT_FILE;
         String disposition = httpsConn.getHeaderField("Content-Disposition");
 
         if (disposition != null) {
@@ -211,14 +189,14 @@ public class Communications {
         InputStream inputStream = httpsConn.getInputStream();
 
         //Opens an output stream to save into file
-        File path = new File(context.getFilesDir(), fileName);
+        File path = new File(this.crypto.getContext().getFilesDir(), fileName);
 
         path.createNewFile();
 
         FileOutputStream outputStream = new FileOutputStream(path);
 
         //Save file
-        int bytesRead = -1;
+        int bytesRead;
         byte[] buffer = new byte[4096];
         while ((bytesRead = inputStream.read(buffer)) != -1) {
             outputStream.write(buffer, 0, bytesRead);

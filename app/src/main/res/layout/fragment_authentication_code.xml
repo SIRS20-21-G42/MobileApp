@@ -7,20 +7,13 @@
     tools:context=".authenticationCodeFragment"
     android:background="@color/colorPrimary">
 
-
-    <TextView
-        android:id="@+id/textView"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_marginStart="182dp"
-        android:layout_marginLeft="182dp"
-        android:layout_marginTop="356dp"
-        android:layout_marginEnd="172dp"
-        android:layout_marginRight="172dp"
-        android:layout_marginBottom="356dp"
-        android:text="@string/authentication"
-        android:textSize="25sp"
-        android:textColor="@color/white"
+    <EditText
+        android:id="@+id/OTPCode"
+        android:layout_width="246dp"
+        android:layout_height="90dp"
+        android:ems="10"
+        android:importantForAutofill="no"
+        android:inputType="none|number"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"

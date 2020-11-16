@@ -1,29 +1,48 @@
 package com.example.sirsapp;
 
+import java.io.FileNotFoundException;
 import java.math.BigInteger;
 import java.time.Instant;
 
 import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
 
-import static java.lang.Math.pow;
-
 public class TOTP {
+    private final Cryptography crypto;
+    private byte[] secret;
+
+    private static final String FILE = "SECRET";
     private static final int DIGITS = 6;
-    private static final int MOD = 1000000; // = 10^6 digits
+    private static final int MOD = 1_000_000; // = 10^6 digits
     private static final int TIME_STEP = 30;
+
+    public TOTP(Cryptography crypto) {
+        this.crypto = crypto;
+
+        try {
+            this.secret = this.crypto.getFromFile(FILE);
+        } catch (FileNotFoundException e) {
+            this.secret = null;
+        } catch (Exception e) {
+            // FIXME: Properly handle the exception
+            e.printStackTrace();
+        }
+    }
 
     /**
      * Store the {@param key} in the keyStore for later usage
      *
      * @param key: the shared secret between prover and verifier
      */
-    public static void init(String key) {
+    public void init(String key) {
+        this.secret = key.getBytes();
+
         try {
-            Criptography.saveTOTPSecret(key);
+            this.crypto.saveToFile(FILE, this.secret);
         } catch (Exception e) {
             // FIXME: Properly handle the exception
             e.printStackTrace();
+            this.secret = null;
         }
     }
 
@@ -34,7 +53,7 @@ public class TOTP {
      * @param text: the text to be authenticated
      * @return the corresponding 32-byte hash
      */
-    private static byte[] hmac(byte[] key, byte[] text) {
+    private byte[] hmac(byte[] key, byte[] text) {
         try {
             Mac mac = Mac.getInstance("HmacSHA256");
             SecretKeySpec macKey = new SecretKeySpec(key, "RAW");
@@ -70,8 +89,8 @@ public class TOTP {
      *
      * @return the TOTP for the current timestep
      */
-    public static String generate() {
-        long T = Instant.now().getEpochSecond() / TIME_STEP;
+    public String generate() {
+        long T = System.currentTimeMillis() / (TIME_STEP * 1000);
         StringBuilder step = new StringBuilder(Long.toHexString(T).toUpperCase());
 
         while(step.length() < 16) {
@@ -82,7 +101,7 @@ public class TOTP {
 
         byte[] hash;
         try {
-            hash = hmac(Criptography.getTOTPSecret(), msg);
+            hash = hmac(this.secret, msg);
         } catch (Exception e) {
             // FIXME: Properly handle the exception
             e.printStackTrace();
@@ -93,12 +112,12 @@ public class TOTP {
         int offset = hash[hash.length - 1] & 0xf;
         int P = ((hash[offset] & 0x7f) << 24) | (hash[offset + 1] << 16) | (hash[offset + 2] << 8) | (hash[offset + 3]);
 
-        StringBuilder OTP = new StringBuilder(Integer.toString(P % MOD));
+        StringBuilder OTP = new StringBuilder(Integer.toString((((P % MOD) + MOD) % MOD)));
 
         while(OTP.length() < DIGITS) {
             OTP.insert(0, "0");
         }
 
-        return step.toString();
+        return OTP.toString();
     }
 }

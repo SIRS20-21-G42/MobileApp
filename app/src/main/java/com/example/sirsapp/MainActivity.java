@@ -20,6 +20,7 @@ public class MainActivity extends AppCompatActivity {
         } else {
             intent = new Intent(this, RegisterActivity.class);
         }
+
         startActivity(intent);
         finish();
     }
@@ -27,7 +28,7 @@ public class MainActivity extends AppCompatActivity {
     /**
      * Checks if a user is logged in
      *
-     * @return: true if the user is logged in, false otherwise
+     * @return true if the user is logged in, false otherwise
      */
     private boolean logged() {
         // if username file exists, then register has been completed
