@@ -8,16 +8,21 @@ import androidx.navigation.ui.AppBarConfiguration;
 import androidx.navigation.ui.NavigationUI;
 
 import android.os.Bundle;
+import android.widget.ProgressBar;
 import android.widget.TextView;
 
 import com.google.android.material.navigation.NavigationView;
 
+import java.time.Instant;
 import java.util.HashSet;
 import java.util.Set;
 
 public class DrawerActivity extends AppCompatActivity {
+    private static final int SLEEP_TIME = 100;
+
     private TOTP totp;
     private Communications comms;
+    private String current = "QUEREMOS O 20";
     private NavController navController;
     private DrawerLayout drawerLayout;
     private AppBarConfiguration appBarConfig;
@@ -52,19 +57,44 @@ public class DrawerActivity extends AppCompatActivity {
         appBarConfig = new AppBarConfiguration.Builder(topLevelDestinations).setOpenableLayout(drawerLayout).build();
         NavigationUI.setupActionBarWithNavController(this, navController, appBarConfig);
 
-        this.totp.init("aaaaaaaaaaaaaaa");
+        if (!this.totp.isInitialized()) {
+            // TODO: Get the secret from RegistrationActivity
+            // (it is done with Bundle)
+            this.totp.init("aaaaaaaaaaaaaaa");
+        }
+
         new Thread(this::generateOTP).start();
     }
 
-    private void generateOTP() {
+    /**
+     * Update progress bar and code
+     *
+     * @param progress: the seconds elapsed since last code calculation
+     */
+    private void updateOTPCode(int progress) {
+        runOnUiThread(() -> {
+            try {
+                ((TextView) findViewById(R.id.OTPCode)).setText(this.current);
+                ((ProgressBar) findViewById(R.id.codeProgress)).setProgress(progress);
+            } catch (NullPointerException e) {
+                // FIXME: ignore???
+            }
+        });
+    }
 
+    /**
+     * Generate TOTP codes and show them in the UI
+     */
+    private void generateOTP() {
         while(true) {
             try {
-                String totp = this.totp.generate();
+                this.current = this.totp.generate();
 
-                runOnUiThread(() -> ((TextView) findViewById(R.id.OTPCode)).setText(totp));
-
-                Thread.sleep(30 * 1000);
+                int progress;
+                while ((progress = (int) (Instant.now().getEpochSecond() % TOTP.TIME_STEP)) != 0) {
+                    this.updateOTPCode(progress);
+                    Thread.sleep(SLEEP_TIME);
+                }
             } catch (Exception e) {
                 e.printStackTrace();
             }

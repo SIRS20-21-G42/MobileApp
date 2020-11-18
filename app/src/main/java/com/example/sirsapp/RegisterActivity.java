@@ -72,7 +72,7 @@ public class RegisterActivity extends AppCompatActivity {
             if (!checkFile(Cryptography.APP_CERT_FILE)) {
                 boolean success = this.comms.getCertificateFromCA(Cryptography.APP_CSR_FILE, caCert);
                 if (!success) {
-                    outputError("An error occurred, please try again");
+                    runOnUiThread(() -> { outputError("An error occurred, please try again"); });
                     return;
                 }
             }
@@ -101,7 +101,7 @@ public class RegisterActivity extends AppCompatActivity {
 
             BigInteger paramB = handleFirstResponse(response, secretK, authCert.getPublicKey());
             if (paramB == null){
-                outputError("An error occurred, please try again");
+                runOnUiThread(() -> { outputError("An error occurred, please try again"); });
                 return;
             }
 
@@ -115,7 +115,7 @@ public class RegisterActivity extends AppCompatActivity {
 
             // validate server response
             if (!handleSecondResponse(response, secretK, authCert.getPublicKey())){
-                outputError("An error occurred, please try again");
+                runOnUiThread(() -> { outputError("An error occurred, please try again"); });
                 return;
             }
 
@@ -127,7 +127,7 @@ public class RegisterActivity extends AppCompatActivity {
             finish();
 
         } catch (Exception e) {
-            outputError("An error occurred, please try again");
+            runOnUiThread(() -> { outputError("An error occurred, please try again"); });
             System.out.println("ERROR!");
             e.printStackTrace();
         }

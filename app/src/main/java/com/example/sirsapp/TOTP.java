@@ -11,16 +11,15 @@ public class TOTP {
     private final Cryptography crypto;
     private byte[] secret;
 
-    private static final String FILE = "SECRET";
     private static final int DIGITS = 6;
     private static final int MOD = 1_000_000; // = 10^6 digits
-    private static final int TIME_STEP = 30;
+    public static final int TIME_STEP = 30;
 
     public TOTP(Cryptography crypto) {
         this.crypto = crypto;
 
         try {
-            this.secret = this.crypto.getFromFile(FILE);
+            this.secret = this.crypto.getFromFile(Cryptography.AUTH_SHARED_KEY_FILE);
         } catch (FileNotFoundException e) {
             this.secret = null;
         } catch (Exception e) {
@@ -36,18 +35,19 @@ public class TOTP {
      */
     public void init(String key) {
         this.secret = key.getBytes();
-
-        try {
-            this.crypto.saveToFile(FILE, this.secret);
-        } catch (Exception e) {
-            // FIXME: Properly handle the exception
-            e.printStackTrace();
-            this.secret = null;
-        }
     }
 
     /**
-     * Compute HMAC of with SHA256
+     * Check if TOTP has already been seeded with a secret
+     *
+     * @return if secret is already defined
+     */
+    public boolean isInitialized() {
+        return this.secret != null;
+    }
+
+    /**
+     * Compute HMAC-SHA256 of text with key
      *
      * @param key: the bytes to use as HMAC key
      * @param text: the text to be authenticated
@@ -110,9 +110,9 @@ public class TOTP {
 
         // Get 4 least significant bits of HMAC
         int offset = hash[hash.length - 1] & 0xf;
-        int P = ((hash[offset] & 0x7f) << 24) | (hash[offset + 1] << 16) | (hash[offset + 2] << 8) | (hash[offset + 3]);
+        int P = (((((hash[offset] & 0x7f) << 24) | ((hash[offset + 1] & 0xff) << 16)) | ((hash[offset + 2] & 0xff) << 8)) | (hash[offset + 3] & 0xff));
 
-        StringBuilder OTP = new StringBuilder(Integer.toString((((P % MOD) + MOD) % MOD)));
+        StringBuilder OTP = new StringBuilder(Integer.toString(Math.floorMod(P, MOD)));
 
         while(OTP.length() < DIGITS) {
             OTP.insert(0, "0");

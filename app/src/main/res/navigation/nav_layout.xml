@@ -8,7 +8,7 @@
     <fragment
         android:id="@+id/authenticationCodeFragment"
         android:name="com.example.sirsapp.authenticationCodeFragment"
-        android:label="fragment_authentication_code"
+        android:label="@string/authentication"
         tools:layout="@layout/fragment_authentication_code" />
     <fragment
         android:id="@+id/safeLocalFragment"

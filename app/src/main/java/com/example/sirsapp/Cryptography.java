@@ -53,15 +53,22 @@ public class Cryptography {
     public static final String APP_CERT_FILE = "app.crt";
     public static final String APP_CSR_FILE = "app.csr";
     public static final String APP_SECRETK_ALIAS = "app_secretK";
+    public static final String AUTH_SHARED_KEY_FILE = "auth_shared.key";
     private static final int ASYM_KEY_SIZE = 2048;
-    private static final String AUTH_SHARED_KEY_FILE = "auth_shared.key";
     private static final int BLOCK_SIZE = 12; // GCM has block-size of 12 bytes
     private static final String PUBLIC_KEY_FILE = "pub.key";
     private static final String PRIVATE_KEY_FILE = "priv.key";
     private static final int SYM_KEY_SIZE = 256;
     private static final int TAG_BITS = 128;
 
+    /**
+     * Create a new instance of the Criptography class
+     *
+     * @param context: the application context
+     * @throws Exception for now throws all the occurred exceptions
+     */
     public Cryptography(Context context) throws Exception {
+        // FIXME: properly handle the exceptions
         KeyStore keyStore = KeyStore.getInstance(ANDROID_KEY_STORE);
         keyStore.load(null);
 
@@ -83,6 +90,11 @@ public class Cryptography {
         }
     }
 
+    /**
+     * Get the current application context
+     *
+     * @return the application context
+     */
     public Context getContext() {
         return this.context;
     }
@@ -407,7 +419,13 @@ public class Cryptography {
         return cipher.doFinal(m);
     }
 
-
+    /**
+     * Save information to the given filename, that will be ciphered with the app key
+     *
+     * @param filename: the filename to store the information
+     * @param text: the information to store
+     * @throws Exception for now throws all the occurred exceptions
+     */
     public void saveToFile(String filename, byte[] text) throws Exception {
         File path = new File(context.getFilesDir(), filename);
 
@@ -439,6 +457,13 @@ public class Cryptography {
         file.close();
     }
 
+    /**
+     * Decipher and return the information stored in the given file
+     *
+     * @param filename: the file containing the information
+     * @return the information on the file
+     * @throws Exception for now throws all the occurred exceptions
+     */
     public byte[] getFromFile(String filename) throws Exception {
         File path = new File(context.getFilesDir(), filename);
 

@@ -16,10 +16,7 @@ public class authenticationCodeFragment extends Fragment {
     @Override
     public View onCreateView(LayoutInflater inflater, ViewGroup container,
                              Bundle savedInstanceState) {
-        View root = inflater.inflate(R.layout.fragment_authentication_code, container, false);
 
-        getActivity().setTitle("Authentication Code");
-
-        return root;
+        return inflater.inflate(R.layout.fragment_authentication_code, container, false);
     }
 }
