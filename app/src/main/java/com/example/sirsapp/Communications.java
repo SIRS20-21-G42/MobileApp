@@ -2,14 +2,18 @@ package com.example.sirsapp;
 
 import android.content.Context;
 
-import org.jetbrains.annotations.NotNull;
+import org.json.JSONException;
+import org.json.JSONObject;
 
+import java.io.BufferedReader;
 import java.io.DataOutputStream;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.InputStreamReader;
 import java.net.HttpURLConnection;
+import java.net.Socket;
 import java.net.URL;
 import java.security.KeyManagementException;
 import java.security.KeyStore;
@@ -24,7 +28,8 @@ import javax.net.ssl.TrustManagerFactory;
 
 public class Communications {
 
-    public static final String HOSTNAME = "192.168.1.78";
+    private static final String HOSTNAME = "192.168.1.78";
+    private static final int AUTH_PORT = 1337;
     private static final String attachmentName = "csr";
     private static final String attachmentFileName = "app.csr";
     private static final String crlf = "\r\n";
@@ -35,25 +40,47 @@ public class Communications {
 
     }
 
-    public static boolean getCertificateFromCA(Context context, String csrFilename, Certificate caCert) throws Exception {
-        //Load certificate into keyStore to use for TLS
-        KeyStore ks = createKeyStore(caCert);
+    public static JSONObject sendMesageToAuth(JSONObject request) throws IOException, JSONException {
+        Socket socket = new Socket(HOSTNAME, AUTH_PORT);
+        DataOutputStream outStream = new DataOutputStream(socket.getOutputStream());
 
-        //setup parameters for connection
-        HttpsURLConnection httpsConn = setupHttpsURLConnection(ks);
+        //Send request
+        outStream.write(request.toString().getBytes());
+        outStream.write("\n".getBytes());
 
-        //send request
-        sendCARequest(context, csrFilename, httpsConn);
+        outStream.close();
 
-        //get response
-        int responseCode = httpsConn.getResponseCode();
-        System.out.println(responseCode);
-        if (responseCode == HttpURLConnection.HTTP_OK) {
-            getCAResponse(context, httpsConn);
-            return true;
-        }
+        //Read response
+        BufferedReader reader = new BufferedReader(new InputStreamReader(socket.getInputStream()));
+        String response = reader.readLine();
 
-        return false;
+        reader.close();
+
+        return new JSONObject(response);
+    }
+
+    public static boolean getCertificateFromCA(Context context, String csrFilename, Certificate cert) throws Exception {
+        // create keystore with ca certificate to use for connection
+        KeyStore ks = createKeyStore(cert);
+        if (ks == null)
+            return false;
+
+        // setup the HTTPS connection to ca
+        HttpsURLConnection conn = setupHttpsURLConnection(ks);
+        if (conn == null)
+            return false;
+
+        // send the request to the CA
+        sendCARequest(context, csrFilename, conn);
+
+        // check request response code
+        int responseCode = conn.getResponseCode();
+        if (responseCode != HttpURLConnection.HTTP_OK)
+            return false;
+
+        // get response from the CA
+        getCAResponse(context, conn);
+        return true;
 
     }
 
@@ -97,8 +124,7 @@ public class Communications {
         httpsConn.setRequestProperty(
                 "Content-Type", "multipart/form-data;boundary=" + boundary);
 
-        DataOutputStream request = new DataOutputStream(
-                httpsConn.getOutputStream());
+        DataOutputStream request = new DataOutputStream(httpsConn.getOutputStream());
 
         //writing the content of the request
         request.writeBytes(twoHyphens + boundary + crlf);
