@@ -2,25 +2,19 @@ package com.example.sirsapp;
 
 import android.content.Context;
 
-import org.json.JSONException;
 import org.json.JSONObject;
 
 import java.io.BufferedReader;
 import java.io.DataOutputStream;
 import java.io.File;
 import java.io.FileOutputStream;
-import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.net.HttpURLConnection;
 import java.net.Socket;
 import java.net.URL;
-import java.security.KeyManagementException;
 import java.security.KeyStore;
-import java.security.KeyStoreException;
-import java.security.NoSuchAlgorithmException;
 import java.security.cert.Certificate;
-import java.security.cert.CertificateException;
 
 import javax.net.ssl.HttpsURLConnection;
 import javax.net.ssl.SSLContext;
@@ -40,7 +34,14 @@ public class Communications {
 
     }
 
-    public static JSONObject sendMesageToAuth(JSONObject request) throws IOException, JSONException {
+    /**
+     * Sends the json message to auth
+     *
+     * @param request: json with the request to send
+     * @return json with the response from auth
+     * @throws Exception for now throws all the occurred exceptions
+     */
+    public static JSONObject sendMesageToAuth(JSONObject request) throws Exception {
         Socket socket = new Socket(HOSTNAME, AUTH_PORT);
         DataOutputStream outStream = new DataOutputStream(socket.getOutputStream());
 
@@ -59,9 +60,18 @@ public class Communications {
         return new JSONObject(response);
     }
 
-    public static boolean getCertificateFromCA(Context context, String csrFilename, Certificate cert) throws Exception {
+    /**
+     * Sends a CSR to the CA and gets a certificate, storing it in a file
+     *
+     * @param context: context of the application
+     * @param csrFilename: name of the file containing the CSR
+     * @param caCert: CA certificate
+     * @return true if the certificate was received correctly
+     * @throws Exception for now throws all the occurred exceptions
+     */
+    public static boolean getCertificateFromCA(Context context, String csrFilename, Certificate caCert) throws Exception {
         // create keystore with ca certificate to use for connection
-        KeyStore ks = createKeyStore(cert);
+        KeyStore ks = createKeyStore(caCert);
         if (ks == null)
             return false;
 
@@ -84,7 +94,14 @@ public class Communications {
 
     }
 
-    private static KeyStore createKeyStore(Certificate caCert) throws KeyStoreException, CertificateException, IOException, NoSuchAlgorithmException {
+    /**
+     * Creates a key store and inserts the certificate in it
+     *
+     * @param caCert: CA certificate
+     * @return created keystore
+     * @throws Exception for now throws all the occurred exceptions
+     */
+    private static KeyStore createKeyStore(Certificate caCert) throws Exception {
         KeyStore ks = KeyStore.getInstance(KeyStore.getDefaultType());
         ks.load(null);
 
@@ -94,8 +111,15 @@ public class Communications {
         return ks;
     }
 
-    private static HttpsURLConnection setupHttpsURLConnection(KeyStore ks) throws NoSuchAlgorithmException, KeyStoreException, KeyManagementException, IOException {
-        //Creating a TrustManager and initializing with the KeyStore
+    /**
+     * Sets up the parameters for the HTTPS connection
+     *
+     * @param ks: key store to use for the trusted certificates in the connection
+     * @return connection created
+     * @throws Exception for now throws all the occurred exceptions
+     */
+    private static HttpsURLConnection setupHttpsURLConnection(KeyStore ks) throws Exception {
+        // Creating a TrustManager and initializing with the KeyStore
         String tmfAlgorithm = TrustManagerFactory.getDefaultAlgorithm();
         TrustManagerFactory tmf = TrustManagerFactory.getInstance(tmfAlgorithm);
         tmf.init(ks);
@@ -107,17 +131,23 @@ public class Communications {
         HttpsURLConnection httpsConn = (HttpsURLConnection) url.openConnection();
         httpsConn.setSSLSocketFactory(cont.getSocketFactory());
 
-        //Setting a verifier to allow connections to the host
-        httpsConn.setHostnameVerifier((hostname, sslSession) -> {
-            return hostname.equals(HOSTNAME);
-        });
+        // Setting a verifier to allow connections to the host
+        httpsConn.setHostnameVerifier((hostname, sslSession) -> hostname.equals(HOSTNAME));
         httpsConn.setUseCaches(false);
         httpsConn.setDoOutput(true);
         return httpsConn;
     }
 
+    /**
+     * Sends a request to the CA
+     *
+     * @param context: context of the application
+     * @param csrFilename: name of the file containing the CSR
+     * @param httpsConn: connection object with the connection parameters setup
+     * @throws Exception for now throws all the occurred exceptions
+     */
     private static void sendCARequest(Context context, String csrFilename, HttpsURLConnection httpsConn) throws Exception {
-        //Setting the headers of the request
+        // Setting the headers of the request
         httpsConn.setRequestMethod("POST");
         httpsConn.setRequestProperty("Connection", "Keep-Alive");
         httpsConn.setRequestProperty("Cache-Control", "no-cache");
@@ -126,18 +156,18 @@ public class Communications {
 
         DataOutputStream request = new DataOutputStream(httpsConn.getOutputStream());
 
-        //writing the content of the request
+        // Writing the content of the request
         request.writeBytes(twoHyphens + boundary + crlf);
         request.writeBytes("Content-Disposition: form-data; name=\"" +
                 attachmentName + "\";filename=\"" +
                 attachmentFileName + "\"" + crlf);
         request.writeBytes(crlf);
 
-        //Reading the file and writing the request
+        // Reading the file and writing the request
         byte [] csr = Criptography.getFromFileNoEncryption(context, csrFilename);
         request.write(csr);
 
-        //End of the request
+        // End of the request
         request.writeBytes(crlf);
         request.writeBytes(twoHyphens + boundary +
                 twoHyphens + crlf);
@@ -146,7 +176,14 @@ public class Communications {
         request.close();
     }
 
-    private static void getCAResponse(Context context, HttpsURLConnection httpsConn) throws IOException {
+    /**
+     * Gets the response from the CA and stores the certificate in a file if successful request
+     *
+     * @param context: context of the application
+     * @param httpsConn: connection created with the CA
+     * @throws Exception for now throws all the occurred exceptions
+     */
+    private static void getCAResponse(Context context, HttpsURLConnection httpsConn) throws Exception {
         String fileName = Criptography.APP_CERT_FILE;
         String disposition = httpsConn.getHeaderField("Content-Disposition");
 

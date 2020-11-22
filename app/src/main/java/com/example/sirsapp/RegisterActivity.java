@@ -1,6 +1,7 @@
 package com.example.sirsapp;
 
 import android.content.Context;
+import android.content.Intent;
 import android.os.Bundle;
 import android.os.StrictMode;
 import android.view.View;
@@ -10,35 +11,20 @@ import android.widget.Toast;
 
 import androidx.appcompat.app.AppCompatActivity;
 
-import org.json.JSONException;
 import org.json.JSONObject;
 
 import java.io.File;
 import java.math.BigInteger;
 import java.nio.charset.StandardCharsets;
-import java.security.AlgorithmParameterGenerator;
-import java.security.AlgorithmParameters;
-import java.security.InvalidAlgorithmParameterException;
-import java.security.InvalidKeyException;
 import java.security.KeyPair;
-import java.security.NoSuchAlgorithmException;
 import java.security.PrivateKey;
 import java.security.PublicKey;
-import java.security.SecureRandom;
-import java.security.SignatureException;
 import java.security.cert.Certificate;
-import java.security.spec.InvalidParameterSpecException;
 import java.util.Base64;
 import java.util.Calendar;
 import java.util.Date;
-import java.util.Random;
 
-import javax.crypto.BadPaddingException;
-import javax.crypto.IllegalBlockSizeException;
-import javax.crypto.NoSuchPaddingException;
 import javax.crypto.SecretKey;
-import javax.crypto.spec.DHParameterSpec;
-import javax.crypto.spec.SecretKeySpec;
 
 public class RegisterActivity extends AppCompatActivity {
 
@@ -100,7 +86,7 @@ public class RegisterActivity extends AppCompatActivity {
             }
 
             // calculate {ts || username || B || {sha256(ts, username, B)}privK}secK
-            message = calculateSecondMessage(username, keys, secretK, paramB, authCert.getPublicKey());
+            message = calculateSecondMessage(username, keys, secretK, paramB);
 
             // Send message to Auth
             response = Communications.sendMesageToAuth(message);
@@ -113,7 +99,10 @@ public class RegisterActivity extends AppCompatActivity {
 
             Criptography.saveToFileNoEncryption(getApplicationContext(), "username.txt", username.getBytes());
 
-            System.out.println("DONE");
+            Intent intent = new Intent(this, RegisterActivity.class);
+
+            startActivity(intent);
+            finish();
 
         } catch (Exception e) {
             outputError("An error occurred, please try again");
@@ -123,9 +112,18 @@ public class RegisterActivity extends AppCompatActivity {
         }
     }
 
+    /**
+     * Calculate de json containing the first message to send to auth
+     *      {ts || username || secK}authPubK +  {appCert || {sha256(secK, ts, username)}appPrivK}secK
+     *
+     * @param username: username received for register
+     * @param keys: the application key pair
+     * @param secK: the generated secret key for the communication
+     * @param appCert: the application certificate
+     * @return json with the application's first message to auth
+     * @throws Exception for now throws all the occurred exceptions
+     */
     private JSONObject calculateFirstMessage(String username, KeyPair keys, SecretKey secK, PublicKey authKey, Certificate appCert) throws Exception{
-        // calculate {ts || username || secK}authPubK +  {appCert || {sha256(secK, ts, username)}appPrivK}secK
-
         long ts = System.currentTimeMillis() / 1000L;
         PrivateKey privKey= keys.getPrivate();
 
@@ -153,16 +151,26 @@ public class RegisterActivity extends AppCompatActivity {
         // generate new iv
         byte[] iv = Criptography.generateIv();
 
-        // cipher plainCertificate with secK and put on request
+        // cipher part2 with secK and put on request
         byte[] part2Encoded = Criptography.cipherAES(part2Json.toString().getBytes(), secK, iv);
         requestContentJson.put("part2", Base64.getEncoder().encodeToString(part2Encoded));
+
+        // add iv to request
         requestContentJson.put("iv", Base64.getEncoder().encodeToString(iv));
 
         requestJson.put("reg", requestContentJson);
-        System.out.println(requestJson.toString());
         return  requestJson;
     }
 
+    /**
+     * Interpret the first response received from auth
+     *
+     * @param response: json with the response from the auth
+     * @param secK: the generated secret key for the communication
+     * @param authPubkey: the public key of the auth
+     * @return public application DH parameter
+     * @throws Exception for now throws all the occurred exceptions
+     */
     private BigInteger handleFirstResponse(JSONObject response, SecretKey secK, PublicKey authPubkey) throws Exception {
         String contentEncoded = response.getString("content");
 
@@ -189,9 +197,18 @@ public class RegisterActivity extends AppCompatActivity {
         return Criptography.generateDiffieHellmanParam(getApplicationContext(), new BigInteger(paramA), new BigInteger(n), new BigInteger(g));
     }
 
-    private JSONObject calculateSecondMessage(String username, KeyPair keys, SecretKey secK, BigInteger paramB, PublicKey authKey) throws Exception{
-        // calculate {ts || username || B || {sha256(ts, username, B)}privK}secK
-
+    /**
+     * Calculate de json containing the second message to send to auth:
+     *      {ts || username || B || {sha256(ts, username, B)}privK}secK
+     *
+     * @param username: username received for register
+     * @param keys: the application key pair
+     * @param secK: the generated secret key for the communication
+     * @param paramB: the application's public DH parameter
+     * @return json with the application's second message to auth
+     * @throws Exception for now throws all the occurred exceptions
+     */
+    private JSONObject calculateSecondMessage(String username, KeyPair keys, SecretKey secK, BigInteger paramB) throws Exception{
         long ts = System.currentTimeMillis() / 1000L;
         PrivateKey privKey= keys.getPrivate();
 
@@ -215,13 +232,23 @@ public class RegisterActivity extends AppCompatActivity {
         // cipher content with secK
         byte[] messageCiphered = Criptography.cipherAES(content.toString().getBytes(), secK, iv);
         requestContentJson.put("content", Base64.getEncoder().encodeToString(messageCiphered));
+
+        // add iv to request
         requestContentJson.put("iv", Base64.getEncoder().encodeToString(iv));
 
         requestJson.put("reg", requestContentJson);
-        System.out.println(requestJson);
         return  requestJson;
     }
 
+    /**
+     * Interpret the second response received from auth
+     *
+     * @param response: json with the response from the auth
+     * @param secK: the generated secret key for the communication
+     * @param authPubkey: the public key of the auth
+     * @return true if the response is accepted, false otherwise
+     * @throws Exception for now throws all the occurred exceptions
+     */
     private boolean handleSecondResponse(JSONObject response, SecretKey secK, PublicKey authPubkey) throws Exception {
         String contentEncoded = response.getString("content");
 
@@ -243,17 +270,26 @@ public class RegisterActivity extends AppCompatActivity {
         if (!success)
             return false;
 
-        System.out.println("here");
         return resp.equals("OK");
     }
 
-    private boolean checkRequest(String stringToVerify, String signature, String ts, PublicKey authPubkey) throws NoSuchAlgorithmException, InvalidKeyException, SignatureException {
+    /**
+     * Verify if the received response can be accepted
+     *
+     * @param stringToVerify: string with the contents of the signature
+     * @param signature: signature received in the response
+     * @param ts: timestamp received in the response
+     * @param authPubkey: the public key of the auth
+     * @return true if the signature is correct and the response timestamp is within the boundary limits
+     * @throws Exception for now throws all the occurred exceptions
+     */
+    private boolean checkRequest(String stringToVerify, String signature, String ts, PublicKey authPubkey) throws Exception {
         // verify signature
         boolean success = Criptography.verify(stringToVerify.getBytes(), Base64.getDecoder().decode(signature), authPubkey);
         if (!success)
             return false;
 
-        // verify ts limit
+        // get current ts
         long currentTs = System.currentTimeMillis() / 1000L;
         Date currentDate = new java.util.Date(currentTs*1000);
         Date reqTs = new Date(Long.parseLong(ts)*1000);
@@ -268,17 +304,30 @@ public class RegisterActivity extends AppCompatActivity {
         c.add(Calendar.MINUTE, -2);
         Date bottomLimit = c.getTime();
 
+        // verify ts limits
         if (upperLimit.before(reqTs) || bottomLimit.after(reqTs)){
             return false;
         }
         return true;
     }
 
+    /**
+     * Verify is a file exists
+     *
+     * @param filename: name of the file to be checked
+     * @return true if the file exists, false otherwise
+     */
     private boolean checkFile(String filename) {
         File file = new File(getApplicationContext().getFilesDir(), filename);
         return file.exists();
     }
 
+    /**
+     * Verify the username
+     *
+     * @param username: username to be verified
+     * @return true if the username can be accepted, false otherwise
+     */
     private boolean validateUsername(String username) {
         if (username == null || username.equals("")) {
             outputError("Please specify a username");
@@ -290,6 +339,10 @@ public class RegisterActivity extends AppCompatActivity {
         return true;
     }
 
+    /**
+     * Close the keyboard on the screen
+     *
+     */
     private void closeKeyboard() {
         View view = this.getCurrentFocus();
         if (view != null){
@@ -298,6 +351,11 @@ public class RegisterActivity extends AppCompatActivity {
         }
     }
 
+    /**
+     * Prints an error to the screen
+     *
+     * @param s: string to be printed to the screen
+     */
     private void outputError(String s) {
         Toast.makeText(this, s, Toast.LENGTH_LONG).show();
     }
