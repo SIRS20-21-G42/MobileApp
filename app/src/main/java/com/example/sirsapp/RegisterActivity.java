@@ -93,11 +93,12 @@ public class RegisterActivity extends AppCompatActivity {
             JSONObject message = calculateFirstMessage(username, keys, secretK, authCert.getPublicKey(), appCert, ts);
 
             // create auth connection
-            Socket connection = Communications.newAuthConnection();
+            Socket connection = Communications.openConnection(Communications.AUTH_HOSTNAME, Communications.AUTH_PORT);
 
             // Send message to Auth
-            JSONObject response = Communications.sendMessageToAuth(connection, message, false);
+            Communications.sendMessage(connection, message);
 
+            JSONObject response = Communications.getMessage(connection);
 
             BigInteger paramB = handleFirstResponse(response, secretK, authCert.getPublicKey());
             if (paramB == null){
@@ -110,8 +111,10 @@ public class RegisterActivity extends AppCompatActivity {
 
 
             // Send message to Auth
-            response = Communications.sendMessageToAuth(connection, message, true);
+            Communications.sendMessage(connection, message);
 
+            response = Communications.getMessage(connection);
+            Communications.closeConnection(connection);
 
             // validate server response
             if (!handleSecondResponse(response, secretK, authCert.getPublicKey())){

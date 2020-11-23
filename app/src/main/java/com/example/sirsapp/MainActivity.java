@@ -4,10 +4,12 @@ import androidx.appcompat.app.AppCompatActivity;
 
 import android.content.Intent;
 import android.os.Bundle;
+import android.os.StrictMode;
 
 import java.io.File;
 
 public class MainActivity extends AppCompatActivity {
+    public static final String USERNAME_FILE = "username.txt";
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -32,7 +34,7 @@ public class MainActivity extends AppCompatActivity {
      */
     private boolean logged() {
         // if username file exists, then register has been completed
-        return checkFile("username.txt");
+        return checkFile(USERNAME_FILE);
     }
 
     /**

@@ -13,16 +13,22 @@ import android.widget.TextView;
 
 import com.google.android.material.navigation.NavigationView;
 
-import java.time.Instant;
+import org.json.JSONObject;
+
+import java.net.Socket;
 import java.util.HashSet;
 import java.util.Set;
+import java.util.Timer;
+import java.util.TimerTask;
 
 public class DrawerActivity extends AppCompatActivity {
     private static final int SLEEP_TIME = 100;
+    private static final long POLL_PERIOD = 5;
 
     private TOTP totp;
-    private Communications comms;
     private String current = "QUEREMOS O 20";
+
+    private Timer timer;
     private NavController navController;
     private DrawerLayout drawerLayout;
     private AppBarConfiguration appBarConfig;
@@ -41,7 +47,6 @@ public class DrawerActivity extends AppCompatActivity {
             throw new RuntimeException("Couldn't initialize crypto instance");
         }
 
-        this.comms = new Communications(crypto);
         this.totp = new TOTP(crypto);
 
         navController = Navigation.findNavController(this, R.id.fragment);
@@ -49,6 +54,27 @@ public class DrawerActivity extends AppCompatActivity {
 
         NavigationView navView = findViewById(R.id.navView);
         NavigationUI.setupWithNavController(navView, navController);
+
+        // Run as daemon
+        this.timer = new Timer(true);
+
+        this.timer.schedule(new TimerTask() {
+            @Override
+            public void run() {
+                // Poll auth server
+                try {
+                    Socket socket = Communications.openConnection(Communications.AUTH_HOSTNAME, Communications.AUTH_PORT);
+                    JSONObject message = new JSONObject();
+                    message.put("HELLO", "WORLD");
+                    Communications.sendMessage(socket, message);
+                    System.out.println(Communications.getMessage(socket));
+                    Communications.closeConnection(socket);
+                } catch (Exception e) {
+                    System.err.println("********************");
+                    e.printStackTrace();
+                }
+            }
+        }, 0, POLL_PERIOD * 60 * 1000);
 
         Set<Integer> topLevelDestinations = new HashSet<>();
         topLevelDestinations.add(R.id.authenticationCodeFragment);
@@ -58,9 +84,7 @@ public class DrawerActivity extends AppCompatActivity {
         NavigationUI.setupActionBarWithNavController(this, navController, appBarConfig);
 
         if (!this.totp.isInitialized()) {
-            // TODO: Get the secret from RegistrationActivity
-            // (it is done with Bundle)
-            this.totp.init("aaaaaaaaaaaaaaa");
+            throw new RuntimeException("Couldn't get secret from crypto");
         }
 
         new Thread(this::generateOTP).start();
@@ -91,7 +115,7 @@ public class DrawerActivity extends AppCompatActivity {
                 this.current = this.totp.generate();
 
                 int progress;
-                while ((progress = (int) (Instant.now().getEpochSecond() % TOTP.TIME_STEP)) != 0) {
+                while ((progress = (int) ((System.currentTimeMillis() / 1000L) % TOTP.TIME_STEP)) != 0) {
                     this.updateOTPCode(progress);
                     Thread.sleep(SLEEP_TIME);
                 }
