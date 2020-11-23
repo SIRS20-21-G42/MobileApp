@@ -126,6 +126,11 @@ public class RegisterActivity extends AppCompatActivity {
 
             Intent intent = new Intent(this, DrawerActivity.class);
 
+            Bundle bundle = new Bundle();
+            bundle.putString("username", username);
+
+            intent.putExtras(bundle);
+
             startActivity(intent);
             finish();
 

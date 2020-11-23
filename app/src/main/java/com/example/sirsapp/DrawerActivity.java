@@ -16,17 +16,23 @@ import com.google.android.material.navigation.NavigationView;
 import org.json.JSONObject;
 
 import java.net.Socket;
+import java.util.Base64;
 import java.util.HashSet;
 import java.util.Set;
 import java.util.Timer;
 import java.util.TimerTask;
+
+import javax.crypto.SecretKey;
+import javax.crypto.spec.SecretKeySpec;
 
 public class DrawerActivity extends AppCompatActivity {
     private static final int SLEEP_TIME = 100;
     private static final long POLL_PERIOD = 5;
 
     private TOTP totp;
+    private Cryptography crypto;
     private String current = "QUEREMOS O 20";
+    private String username;
 
     private Timer timer;
     private NavController navController;
@@ -38,16 +44,20 @@ public class DrawerActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_drawer);
 
-        Cryptography crypto;
+        Bundle bundle = getIntent().getExtras();
+        if (bundle == null || (this.username = bundle.getString("username")) == null) {
+            throw new RuntimeException("Couldn't get current user");
+        }
+
         try {
-            crypto = new Cryptography(getApplicationContext());
+            this.crypto = new Cryptography(getApplicationContext());
         } catch (Exception e) {
             // FIXME: Properly handle exception
             e.printStackTrace();
             throw new RuntimeException("Couldn't initialize crypto instance");
         }
 
-        this.totp = new TOTP(crypto);
+        this.totp = new TOTP(this.crypto);
 
         navController = Navigation.findNavController(this, R.id.fragment);
         drawerLayout = findViewById(R.id.drawer_layout);
@@ -65,9 +75,27 @@ public class DrawerActivity extends AppCompatActivity {
                 try {
                     Socket socket = Communications.openConnection(Communications.AUTH_HOSTNAME, Communications.AUTH_PORT);
                     JSONObject message = new JSONObject();
-                    message.put("HELLO", "WORLD");
+                    message.put("username", username);
+
+                    long ts = System.currentTimeMillis() / 1000L;
+
+                    JSONObject content = new JSONObject();
+                    content.put("username", username);
+                    content.put("ts", ts);
+                    content.put("signature", Cryptography.sign((username + ts).getBytes(), crypto.getKeyPair().getPrivate()));
+
+                    byte[] iv = Cryptography.generateIV();
+                    byte[] tmpKey = totp.getSecret();
+                    System.arraycopy(iv, 0, tmpKey, tmpKey.length, iv.length);
+                    byte[] key = Cryptography.digest(tmpKey);
+
+                    SecretKey secK = new SecretKeySpec(key, 0, key.length, "AES");
+
+                    message.put("message", Base64.getEncoder().encode(Cryptography.cipherAES(content.toString().getBytes(), secK, iv)));
+
+                    message.put("iv", Base64.getEncoder().encode(iv));
+
                     Communications.sendMessage(socket, message);
-                    System.out.println(Communications.getMessage(socket));
                     Communications.closeConnection(socket);
                 } catch (Exception e) {
                     System.err.println("********************");

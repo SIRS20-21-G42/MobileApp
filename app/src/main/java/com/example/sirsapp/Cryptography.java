@@ -27,6 +27,8 @@ import java.security.KeyFactory;
 import java.security.KeyPair;
 import java.security.KeyPairGenerator;
 import java.security.KeyStore;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.security.PrivateKey;
 import java.security.PublicKey;
 import java.security.SecureRandom;
@@ -389,6 +391,22 @@ public class Cryptography {
         str.close();
 
         return str.toString().getBytes();
+    }
+
+    /**
+     * Generate teh SHA-256 digest of the message
+     *
+     * @param message: the message to create digest
+     * @return the digest of the given message
+     */
+    public static byte[] digest(byte[] message) {
+        try {
+            MessageDigest digest = MessageDigest.getInstance("SHA-256");
+
+            return digest.digest(message);
+        } catch(NoSuchAlgorithmException e) {
+            throw new RuntimeException("Unknown algorithm in digest");
+        }
     }
 
     /**

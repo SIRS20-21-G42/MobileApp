@@ -29,12 +29,12 @@ public class TOTP {
     }
 
     /**
-     * Store the {@param key} in the keyStore for later usage
+     * Get the secret in use
      *
-     * @param key: the shared secret between prover and verifier
+     * @return the secret
      */
-    public void init(String key) {
-        this.secret = key.getBytes();
+    public byte[] getSecret() {
+        return this.secret;
     }
 
     /**

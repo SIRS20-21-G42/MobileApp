@@ -6,7 +6,12 @@ import android.content.Intent;
 import android.os.Bundle;
 import android.os.StrictMode;
 
+import java.io.BufferedReader;
 import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileNotFoundException;
+import java.io.IOException;
+import java.io.InputStreamReader;
 
 public class MainActivity extends AppCompatActivity {
     public static final String USERNAME_FILE = "username.txt";
@@ -17,8 +22,15 @@ public class MainActivity extends AppCompatActivity {
         setContentView(R.layout.activity_main);
 
         Intent intent;
-        if ( logged() ) {
+        String username = getUsername();
+
+        if (username != null) {
             intent = new Intent(this, DrawerActivity.class);
+
+            Bundle bundle = new Bundle();
+            bundle.putString("username", username);
+
+            intent.putExtras(bundle);
         } else {
             intent = new Intent(this, RegisterActivity.class);
         }
@@ -28,23 +40,23 @@ public class MainActivity extends AppCompatActivity {
     }
 
     /**
-     * Checks if a user is logged in
+     * Get the current username
      *
-     * @return true if the user is logged in, false otherwise
+     * @return the current username or null if not logged
      */
-    private boolean logged() {
-        // if username file exists, then register has been completed
-        return checkFile(USERNAME_FILE);
-    }
+    private String getUsername() {
+        File file = new File(getApplicationContext().getFilesDir(), USERNAME_FILE);
 
-    /**
-     * Checks if a file with a given filename exists
-     *
-     * @param filename: name of the file to be checked
-     * @return true if the file with the given filename exists, false otherwise
-     */
-    private boolean checkFile(String filename) {
-        File file = new File(getApplicationContext().getFilesDir(), filename);
-        return file.exists();
+        if (file.exists()) {
+            try {
+                return new BufferedReader(new InputStreamReader(new FileInputStream(file))).readLine();
+            } catch (FileNotFoundException e) {
+                throw new RuntimeException("File not found");
+            } catch (IOException e) {
+                return null;
+            }
+        }
+
+        return null;
     }
 }
