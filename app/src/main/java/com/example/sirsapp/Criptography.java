@@ -249,7 +249,7 @@ public class Criptography {
     }
 
     /**
-     * Cipher text with RSA (OAEPWithSHA-256AndMGF1Padding)
+     * Cipher text with RSA (PKCS1Padding)
      *
      * @param m: message to be ciphered
      * @param key: key to cipher the message with
@@ -257,13 +257,13 @@ public class Criptography {
      * @throws Exception for now throws all the occurred exceptions
      */
     public static byte[] cipherRSA(byte[] m, Key key) throws Exception {
-        Cipher cipher = Cipher.getInstance("RSA/ECB/OAEPWithSHA-256AndMGF1Padding");
+        Cipher cipher = Cipher.getInstance("RSA/ECB/PKCS1Padding");
         cipher.init(Cipher.ENCRYPT_MODE, key);
         return cipher.doFinal(m);
     }
 
     /**
-     * Decipher text with RSA (OAEPWithSHA-256AndMGF1Padding)
+     * Decipher text with RSA (PKCS1Padding)
      *
      * @param m: message to be deciphered
      * @param key: key to decipher the message with
@@ -271,7 +271,7 @@ public class Criptography {
      * @throws Exception for now throws all the occurred exceptions
      */
     public static byte[] decipherRSA(byte[] m, Key key) throws Exception {
-        Cipher cipher = Cipher.getInstance("RSA/ECB/OAEPWithSHA-256AndMGF1Padding");
+        Cipher cipher = Cipher.getInstance("RSA/ECB/PKCS1Padding");
         cipher.init(Cipher.DECRYPT_MODE, key);
         return cipher.doFinal(m);
     }
@@ -354,7 +354,7 @@ public class Criptography {
     }
 
     /**
-     * Generate Bob's public Diffie Hellman parameter and save the secret key generated from the secret to a file
+     * Generate Bob's public Diffie Hellman parameter and save the shared secret generated to a file
      *
      * @param context: context of the application
      * @param paramA: DH parameter A
@@ -366,7 +366,7 @@ public class Criptography {
     public static BigInteger generateDiffieHellmanParam(Context context, BigInteger paramA, BigInteger n, BigInteger g) throws Exception {
         // generate secret b
         Random randomGenerator = new Random();
-        BigInteger b = new BigInteger(1024, randomGenerator); // secret key b (private) (on client)
+        BigInteger b = new BigInteger(2048, randomGenerator); // secret key b (private) (on client)
 
         // calculate public B
         BigInteger paramB = g.modPow(b, n); // calculated public client key (B=g^b(modp))
@@ -374,19 +374,11 @@ public class Criptography {
         // calculate shared secret
         BigInteger sharedSecret = paramA.modPow(b, n);
 
-        // generate AES key
+        // generate shared key
         byte[] sharedKey = sharedSecret.toByteArray();
-        // AES supports 128 bit keys. So, just take first 16 bits of DH generated key.
-        byte[] byteKey = new byte[16];
-        for(int i = 0; i < 16; i++) {
-            byteKey[i] = sharedKey[i];
-        }
 
-        // convert given key to AES format
-        Key key = new SecretKeySpec(byteKey, "AES");
-
-        // save key
-        saveToFile(context, AUTH_SHARED_KEY_FILE, key.getEncoded(), getSecretKeyFromKeyStore());
+        // save shared secret
+        saveToFile(context, AUTH_SHARED_KEY_FILE, sharedKey, getSecretKeyFromKeyStore());
 
         return paramB;
     }

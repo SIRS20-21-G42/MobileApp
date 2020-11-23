@@ -15,6 +15,7 @@ import org.json.JSONObject;
 
 import java.io.File;
 import java.math.BigInteger;
+import java.net.Socket;
 import java.nio.charset.StandardCharsets;
 import java.security.KeyPair;
 import java.security.PrivateKey;
@@ -70,13 +71,17 @@ public class RegisterActivity extends AppCompatActivity {
             // get app certificate
             Certificate appCert = Criptography.readCertificateFromFile(getApplicationContext(), Criptography.APP_CERT_FILE);
 
+            // calculate timestamp for messages
+            long ts = System.currentTimeMillis() / 1000L;
+
             // calculate {secK || ts || username}authPubK +  {appCert || {sha256(secK, ts, username)}appPrivK}secK
-            JSONObject message = calculateFirstMessage(username, keys, secretK, authCert.getPublicKey(), appCert);
+            JSONObject message = calculateFirstMessage(username, keys, secretK, authCert.getPublicKey(), appCert, ts);
 
-
+            // create auth connection
+            Socket connection = Communications.newAuthConnection();
 
             // Send message to Auth
-            JSONObject response = Communications.sendMesageToAuth(message);
+            JSONObject response = Communications.sendMesageToAuth(connection, message, false);
 
 
             BigInteger paramB = handleFirstResponse(response, secretK, authCert.getPublicKey());
@@ -86,10 +91,12 @@ public class RegisterActivity extends AppCompatActivity {
             }
 
             // calculate {ts || username || B || {sha256(ts, username, B)}privK}secK
-            message = calculateSecondMessage(username, keys, secretK, paramB);
+            message = calculateSecondMessage(username, keys, secretK, paramB, ts);
+
 
             // Send message to Auth
-            response = Communications.sendMesageToAuth(message);
+            response = Communications.sendMesageToAuth(connection, message, true);
+
 
             // validate server response
             if (!handleSecondResponse(response, secretK, authCert.getPublicKey())){
@@ -99,7 +106,7 @@ public class RegisterActivity extends AppCompatActivity {
 
             Criptography.saveToFileNoEncryption(getApplicationContext(), "username.txt", username.getBytes());
 
-            Intent intent = new Intent(this, RegisterActivity.class);
+            Intent intent = new Intent(this, DrawerActivity.class);
 
             startActivity(intent);
             finish();
@@ -123,8 +130,7 @@ public class RegisterActivity extends AppCompatActivity {
      * @return json with the application's first message to auth
      * @throws Exception for now throws all the occurred exceptions
      */
-    private JSONObject calculateFirstMessage(String username, KeyPair keys, SecretKey secK, PublicKey authKey, Certificate appCert) throws Exception{
-        long ts = System.currentTimeMillis() / 1000L;
+    private JSONObject calculateFirstMessage(String username, KeyPair keys, SecretKey secK, PublicKey authKey, Certificate appCert, long ts) throws Exception{
         PrivateKey privKey= keys.getPrivate();
 
         JSONObject requestJson = new JSONObject();
@@ -208,11 +214,9 @@ public class RegisterActivity extends AppCompatActivity {
      * @return json with the application's second message to auth
      * @throws Exception for now throws all the occurred exceptions
      */
-    private JSONObject calculateSecondMessage(String username, KeyPair keys, SecretKey secK, BigInteger paramB) throws Exception{
-        long ts = System.currentTimeMillis() / 1000L;
+    private JSONObject calculateSecondMessage(String username, KeyPair keys, SecretKey secK, BigInteger paramB, long ts) throws Exception{
         PrivateKey privKey= keys.getPrivate();
 
-        JSONObject requestJson = new JSONObject();
         JSONObject requestContentJson = new JSONObject();
 
         // calculate ts || username || B
@@ -236,8 +240,7 @@ public class RegisterActivity extends AppCompatActivity {
         // add iv to request
         requestContentJson.put("iv", Base64.getEncoder().encodeToString(iv));
 
-        requestJson.put("reg", requestContentJson);
-        return  requestJson;
+        return  requestContentJson;
     }
 
     /**

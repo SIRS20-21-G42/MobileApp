@@ -35,27 +35,38 @@ public class Communications {
     }
 
     /**
-     * Sends the json message to auth
+     * Creates a connection to auth
      *
+     * @return socket of the connection established
+     * @throws Exception for now throws all the occurred exceptions
+     */
+    public static Socket newAuthConnection() throws Exception {
+        return new Socket(HOSTNAME, AUTH_PORT);
+    }
+
+
+    /**
+     * Sends the json message to auth, receives the response and closes the connection if desired
+     *
+     * @param socket: socket of the connection
      * @param request: json with the request to send
+     * @param closeConnection: boolean that tells if the connection should be closed
      * @return json with the response from auth
      * @throws Exception for now throws all the occurred exceptions
      */
-    public static JSONObject sendMesageToAuth(JSONObject request) throws Exception {
-        Socket socket = new Socket(HOSTNAME, AUTH_PORT);
+    public static JSONObject sendMesageToAuth(Socket socket, JSONObject request, boolean closeConnection) throws Exception {
         DataOutputStream outStream = new DataOutputStream(socket.getOutputStream());
 
         //Send request
         outStream.write(request.toString().getBytes());
         outStream.write("\n".getBytes());
 
-        outStream.close();
-
         //Read response
         BufferedReader reader = new BufferedReader(new InputStreamReader(socket.getInputStream()));
         String response = reader.readLine();
 
-        reader.close();
+        if (closeConnection)
+            socket.close();
 
         return new JSONObject(response);
     }
