@@ -16,6 +16,7 @@ import com.google.android.material.navigation.NavigationView;
 import org.json.JSONObject;
 
 import java.net.Socket;
+import java.util.Arrays;
 import java.util.Base64;
 import java.util.HashSet;
 import java.util.Set;
@@ -85,20 +86,23 @@ public class DrawerActivity extends AppCompatActivity {
                     content.put("signature", Cryptography.sign((username + ts).getBytes(), crypto.getKeyPair().getPrivate()));
 
                     byte[] iv = Cryptography.generateIV();
-                    byte[] tmpKey = totp.getSecret();
-                    System.arraycopy(iv, 0, tmpKey, tmpKey.length, iv.length);
-                    byte[] key = Cryptography.digest(tmpKey);
+                    byte[] key = Arrays.copyOfRange(Cryptography.digest(totp.getSecret()), 0, 16);
 
                     SecretKey secK = new SecretKeySpec(key, 0, key.length, "AES");
 
-                    message.put("message", Base64.getEncoder().encode(Cryptography.cipherAES(content.toString().getBytes(), secK, iv)));
+                    message.put("content", Base64.getEncoder().encode(Cryptography.cipherAES(content.toString().getBytes(), secK, iv)));
 
                     message.put("iv", Base64.getEncoder().encode(iv));
 
-                    Communications.sendMessage(socket, message);
+                    JSONObject request = new JSONObject();
+                    request.put("auth", message);
+
+                    Communications.sendMessage(socket, request);
+                    System.out.println(Communications.getMessage(socket));
+
                     Communications.closeConnection(socket);
                 } catch (Exception e) {
-                    System.err.println("********************");
+                    // FIXME: Properly handle the exception
                     e.printStackTrace();
                 }
             }
