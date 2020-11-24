@@ -69,11 +69,9 @@ public class RegisterActivity extends AppCompatActivity {
             if (!checkFile(Cryptography.APP_CSR_FILE)) {
                 this.crypto.saveToFileNoEncryption(Cryptography.APP_CSR_FILE, Cryptography.generateCSR(username, keys));
             }
-
-            System.out.println("HELLO");
+            
             if (!checkFile(Cryptography.APP_CERT_FILE)) {
                 boolean success = this.comms.getCertificateFromCA(Cryptography.APP_CSR_FILE, caCert);
-                System.out.println("HELLO");
                 if (!success) {
                     runOnUiThread(() -> { outputError("An error occurred, please try again"); });
                     return;
