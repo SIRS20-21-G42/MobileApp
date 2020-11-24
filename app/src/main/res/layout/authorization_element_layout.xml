@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:layout_alignParentTop="false"
+    android:layout_marginTop="5sp">
+
+    <TextView
+        android:id="@+id/authorizationTextView"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="10dp"
+        android:layout_marginRight="15sp"
+        android:text="ABC"
+        android:textSize="25sp"
+        android:textStyle="bold"
+        android:layout_toLeftOf="@+id/acceptAuthorizationButton"
+        android:layout_alignBottom="@+id/acceptAuthorizationButton"
+        android:layout_marginBottom="7sp">
+
+    </TextView>
+
+    <Button
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginRight="15sp"
+        android:layout_toLeftOf="@id/declineAuthorizationButton"
+        android:text="accept"
+        android:textSize="15sp"
+        android:backgroundTint="#5F9C19"
+        android:id="@+id/acceptAuthorizationButton">
+
+    </Button>
+
+    <Button
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginRight="15sp"
+        android:text="decline"
+        android:textSize="15sp"
+        android:id="@+id/declineAuthorizationButton"
+        android:backgroundTint="#BD1212"
+        android:layout_alignParentRight="true">
+
+    </Button>
+
+    <View
+        android:layout_width="fill_parent"
+        android:layout_height="2sp"
+        android:background="@android:color/darker_gray"
+        android:layout_below="@id/acceptAuthorizationButton"
+        android:layout_marginLeft="30sp"
+        android:layout_marginRight="30sp"
+        android:layout_marginTop="5sp"/>
+
+
+</RelativeLayout>

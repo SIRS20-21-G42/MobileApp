@@ -15,4 +15,12 @@
     <string name="authorization">Authorization</string>
     <string name="insert_username">Insert username to register:</string>
     <string name="submit">Submit</string>
+    <string-array name="items_list">
+        <item>ABC</item>
+        <item>ABCD</item>
+        <item>ABCDE</item>
+        <item>ABCDEF</item>
+        <item>ABCDEFG</item>
+        <item>ABCDEFGH</item>
+    </string-array>
 </resources>
