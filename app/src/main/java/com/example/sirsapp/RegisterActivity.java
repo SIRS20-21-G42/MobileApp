@@ -66,11 +66,14 @@ public class RegisterActivity extends AppCompatActivity {
             Certificate caCert = this.crypto.readCertificateFromResource(R.raw.ca);
 
             // generate CSR for pubK and get certificate(need to communicate with CA)
-            if (!checkFile(Cryptography.APP_CSR_FILE))
+            if (!checkFile(Cryptography.APP_CSR_FILE)) {
                 this.crypto.saveToFileNoEncryption(Cryptography.APP_CSR_FILE, Cryptography.generateCSR(username, keys));
+            }
 
+            System.out.println("HELLO");
             if (!checkFile(Cryptography.APP_CERT_FILE)) {
                 boolean success = this.comms.getCertificateFromCA(Cryptography.APP_CSR_FILE, caCert);
+                System.out.println("HELLO");
                 if (!success) {
                     runOnUiThread(() -> { outputError("An error occurred, please try again"); });
                     return;
@@ -135,8 +138,8 @@ public class RegisterActivity extends AppCompatActivity {
             finish();
 
         } catch (Exception e) {
-            runOnUiThread(() -> { outputError("An error occurred, please try again"); });
             System.out.println("ERROR!");
+            runOnUiThread(() -> { outputError("An error occurred, please try again"); });
             e.printStackTrace();
         }
     }
@@ -352,10 +355,10 @@ public class RegisterActivity extends AppCompatActivity {
      */
     private boolean validateUsername(String username) {
         if (username == null || username.equals("")) {
-            outputError("Please specify a username");
+            runOnUiThread(() -> {outputError("Please specify a username");});
             return false;
         } else if (!username.matches("[A-Za-z0-9_]+") || username.length() > 20) {
-            outputError("Invalid username");
+            runOnUiThread(() -> {outputError("Invalid username");});
             return false;
         }
         return true;

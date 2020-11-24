@@ -16,13 +16,14 @@ public class AuthorizationDialog extends AppCompatDialogFragment {
     public static final String ACCEPT = "accept";
     public static final String DECLINE = "decline";
 
-    private int position;
-    private String title;
-    private String text;
-    private String type;
-    private DialogConfirmation listener;
+    private final int position;
+    private final String title;
+    private final String text;
+    private final String type;
+    private final DialogConfirmation listener;
 
     public interface DialogConfirmation {
+        // interface to act on confirmation button click
         void onAccept(int position);
     }
 
@@ -30,7 +31,7 @@ public class AuthorizationDialog extends AppCompatDialogFragment {
         this.position = position;
         this.title = title;
         this.text = text;
-        this.type = this.INFORMATIONAL;
+        this.type = INFORMATIONAL;
         this.listener = null;
     }
 
@@ -46,12 +47,14 @@ public class AuthorizationDialog extends AppCompatDialogFragment {
     @Override
     public Dialog onCreateDialog(@Nullable Bundle savedInstanceState) {
         AlertDialog.Builder builder = new AlertDialog.Builder(getActivity());
-        if (this.listener == null) {
+        if (this.type.equals(INFORMATIONAL)) {
+            // setting informational dialog
             builder.setTitle(this.title)
                     .setMessage(this.text)
                     .setPositiveButton("Ok", (dialog, which) -> {
                     });
         } else {
+            // setting confirmation dialog
             builder.setTitle(this.title)
                     .setMessage(this.text)
                     .setPositiveButton("Confirm", (dialog, which) -> {
@@ -66,6 +69,7 @@ public class AuthorizationDialog extends AppCompatDialogFragment {
         dialog.setOnShowListener( new DialogInterface.OnShowListener() {
             @Override
             public void onShow(DialogInterface arg0) {
+                // change colour of buttons
                 if (type.equals(ACCEPT))
                     dialog.getButton(AlertDialog.BUTTON_POSITIVE).setTextColor(Color.parseColor("#00ff00"));
                 else if (type.equals(DECLINE))

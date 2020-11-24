@@ -167,6 +167,7 @@ public class Communications {
         httpsConn.setRequestProperty("Cache-Control", "no-cache");
         httpsConn.setRequestProperty(
                 "Content-Type", "multipart/form-data;boundary=" + boundary);
+        httpsConn.setConnectTimeout(5000);
 
         DataOutputStream request = new DataOutputStream(httpsConn.getOutputStream());
 

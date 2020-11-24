@@ -15,21 +15,25 @@ import com.example.sirsapp.R;
 import java.util.List;
 
 public class AuthorizationAdapter extends RecyclerView.Adapter<AuthorizationAdapter.AuthorizationViewHolder> {
-
     // manages the view holder objects
 
     private Context context;
+
+    // list of items to be displayed
     private List<AuthorizationItem> list;
+
+    // listener that implements the methods for the interface clickables
     private OnItemClickListener listener;
 
     public interface OnItemClickListener {
+        // interface of the methods for the click actions
         void onItemClick(int position);
         void onItemAccept(int position);
         void onItemDeny(int position);
     }
 
     public static class AuthorizationViewHolder extends RecyclerView.ViewHolder{
-        // Displays a single item with the view
+        // Displays a single item in the screen
 
         TextView authorizationHash;
         Button acceptButton;
@@ -45,6 +49,7 @@ public class AuthorizationAdapter extends RecyclerView.Adapter<AuthorizationAdap
         }
 
         private void setupClickListeners(OnItemClickListener mListener){
+            // listener for the click on the item (text view)
             authorizationHash.setOnClickListener(v -> {
                 if (mListener != null){
                     int position = getAdapterPosition();
@@ -54,6 +59,7 @@ public class AuthorizationAdapter extends RecyclerView.Adapter<AuthorizationAdap
                 }
             });
 
+            // listener for the click on the accept button
             acceptButton.setOnClickListener(v -> {
                 if (mListener != null){
                     int position = getAdapterPosition();
@@ -63,6 +69,7 @@ public class AuthorizationAdapter extends RecyclerView.Adapter<AuthorizationAdap
                 }
             });
 
+            // listener for the click on the decline button
             declineButton.setOnClickListener(v -> {
                 if (mListener != null){
                     int position = getAdapterPosition();
@@ -74,13 +81,15 @@ public class AuthorizationAdapter extends RecyclerView.Adapter<AuthorizationAdap
         }
     }
 
-    public void setOnItemClickListener(OnItemClickListener itemListener){
-        this.listener = itemListener;
-    }
-
     public AuthorizationAdapter(Context context, List<AuthorizationItem> list) {
+        // constructor
         this.list = list;
         this.context = context;
+    }
+
+    public void setOnItemClickListener(OnItemClickListener itemListener){
+        // setting the listener
+        this.listener = itemListener;
     }
 
     @NonNull
@@ -90,16 +99,16 @@ public class AuthorizationAdapter extends RecyclerView.Adapter<AuthorizationAdap
 
         LayoutInflater inflater = LayoutInflater.from(this.context);
 
-        View view = (View) inflater.inflate(R.layout.authorization_element_layout, parent, false);
+        // inflate an element with the base layout
+        View view = inflater.inflate(R.layout.authorization_element_layout, parent, false);
 
-        AuthorizationViewHolder authorizationViewHolder = new AuthorizationViewHolder(view, this.listener);
-
-        return authorizationViewHolder;
+        return new AuthorizationViewHolder(view, this.listener);
     }
 
     @Override
     public void onBindViewHolder(@NonNull AuthorizationViewHolder holder, int position) {
         // assign data to view components
+
         if (list.get(position).getHash().length() > 5) {
             String text = list.get(position).getHash().substring(0, 5) + "...";
             holder.authorizationHash.setText(text);

@@ -25,51 +25,10 @@ import java.util.List;
  */
 public class authorizationFragment extends Fragment {
 
-    // TODO: Rename parameter arguments, choose names that match
-    // the fragment initialization parameters, e.g. ARG_ITEM_NUMBER
-    private static final String ARG_PARAM1 = "param1";
-    private static final String ARG_PARAM2 = "param2";
     private RecyclerView recyclerView;
     private RecyclerView.LayoutManager layoutManager;
     private List<AuthorizationItem> list;
     private AuthorizationAdapter recyclerAdapter;
-
-    // TODO: Rename and change types of parameters
-    private String mParam1;
-    private String mParam2;
-
-    public authorizationFragment() {
-        // Required empty public constructor
-    }
-
-    /**
-     * Use this factory method to create a new instance of
-     * this fragment using the provided parameters.
-     *
-     * @param param1 Parameter 1.
-     * @param param2 Parameter 2.
-     * @return A new instance of fragment authorizationFragment.
-     */
-    // TODO: Rename and change types and number of parameters
-    public static authorizationFragment newInstance(String param1, String param2) {
-        authorizationFragment fragment = new authorizationFragment();
-        Bundle args = new Bundle();
-        args.putString(ARG_PARAM1, param1);
-        args.putString(ARG_PARAM2, param2);
-        fragment.setArguments(args);
-        return fragment;
-    }
-
-    @Override
-    public void onCreate(Bundle savedInstanceState) {
-        super.onCreate(savedInstanceState);
-        if (getArguments() != null) {
-            mParam1 = getArguments().getString(ARG_PARAM1);
-            mParam2 = getArguments().getString(ARG_PARAM2);
-        }
-
-
-    }
 
     @Override
     public View onCreateView(LayoutInflater inflater, ViewGroup container,
@@ -78,23 +37,31 @@ public class authorizationFragment extends Fragment {
 
         View view = inflater.inflate(R.layout.fragment_authorization, container, false);
 
-        this.recyclerView = (RecyclerView) view.findViewById(R.id.authoriztionRecyclerView);
+        // setting up the recycler view with layout manager
+        this.recyclerView = view.findViewById(R.id.authoriztionRecyclerView);
         this.recyclerView.setHasFixedSize(true);
         this.layoutManager = new LinearLayoutManager(getActivity());
         this.recyclerView.setLayoutManager(this.layoutManager);
+
+        // setting up the items to be displayed
         List<String> hashes= Arrays.asList(getResources().getStringArray(R.array.items_list));
         this.list = new ArrayList<>();
         for (String hash : hashes)
             this.list.add(new AuthorizationItem(hash));
+
+        // sending the list to the adapter
         this.recyclerAdapter = new AuthorizationAdapter(getActivity(), this.list);
         this.recyclerView.setAdapter(this.recyclerAdapter);
 
+
+        //setting up the interface clickables
         setupOnClickButtons();
 
         return view;
     }
 
     private void setupOnClickButtons() {
+        // setting up the buttons for the interface
         this.recyclerAdapter.setOnItemClickListener(new AuthorizationAdapter.OnItemClickListener() {
             @Override
             public void onItemClick(int position) {
@@ -121,7 +88,7 @@ public class authorizationFragment extends Fragment {
     }
 
     private void acceptButtonPressed(int position){
-        // show confirmation dialog
+        // show confirmation dialog for acceptance of item
         AuthorizationItem item = this.list.get(position);
         String text = "Are you sure you want to ACCEPT the item:\n" + item.getHash();
         AuthorizationDialog dialog = new AuthorizationDialog(position, "Confirmation", text, AuthorizationDialog.ACCEPT, new AuthorizationDialog.DialogConfirmation() {
@@ -134,7 +101,7 @@ public class authorizationFragment extends Fragment {
     }
 
     private void declineButtonPressed(int position){
-        // show confirmation dialog
+        // show confirmation dialog for decline of item
         AuthorizationItem item = this.list.get(position);
         String text = "Are you sure you want to DECLINE the item:\n" + item.getHash();
         AuthorizationDialog dialog = new AuthorizationDialog(position, "Confirmation", text, AuthorizationDialog.DECLINE, new AuthorizationDialog.DialogConfirmation() {
