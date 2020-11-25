@@ -20,14 +20,12 @@ import java.util.List;
 
 /**
  * A simple {@link Fragment} subclass.
- * Use the {@link authorizationFragment#newInstance} factory method to
- * create an instance of this fragment.
  */
 public class authorizationFragment extends Fragment {
 
     private RecyclerView recyclerView;
     private RecyclerView.LayoutManager layoutManager;
-    private List<AuthorizationItem> list;
+    public List<AuthorizationItem> list;
     private AuthorizationAdapter recyclerAdapter;
 
     @Override

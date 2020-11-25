@@ -2,6 +2,7 @@ package com.example.sirsapp;
 
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.drawerlayout.widget.DrawerLayout;
+import androidx.fragment.app.Fragment;
 import androidx.navigation.NavController;
 import androidx.navigation.Navigation;
 import androidx.navigation.ui.AppBarConfiguration;
@@ -11,13 +12,16 @@ import android.os.Bundle;
 import android.widget.ProgressBar;
 import android.widget.TextView;
 
+import com.example.sirsapp.ui.Authorization.AuthorizationItem;
 import com.google.android.material.navigation.NavigationView;
 
 import org.json.JSONObject;
 
 import java.net.Socket;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Base64;
+import java.util.Collection;
 import java.util.HashSet;
 import java.util.Set;
 import java.util.Timer;
@@ -98,7 +102,15 @@ public class DrawerActivity extends AppCompatActivity {
                     request.put("auth", message);
 
                     Communications.sendMessage(socket, request);
-                    System.out.println(Communications.getMessage(socket));
+
+                    JSONObject response = Communications.getMessage(socket);
+                    // FIXME: verify signature and separate list
+
+                    Fragment fragment = getSupportFragmentManager().findFragmentById(R.id.authorizationFragment);
+                    if (fragment != null) {
+                        // FIXME: Properly convert items
+                        ((authorizationFragment) fragment).list = new ArrayList<>((Collection<? extends AuthorizationItem>) response);
+                    }
 
                     Communications.closeConnection(socket);
                 } catch (Exception e) {
