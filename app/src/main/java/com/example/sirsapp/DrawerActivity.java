@@ -15,6 +15,7 @@ import android.widget.TextView;
 import com.example.sirsapp.ui.Authorization.AuthorizationItem;
 import com.google.android.material.navigation.NavigationView;
 
+import org.json.JSONArray;
 import org.json.JSONObject;
 
 import java.net.Socket;
@@ -23,6 +24,7 @@ import java.util.Arrays;
 import java.util.Base64;
 import java.util.Collection;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 import java.util.Timer;
 import java.util.TimerTask;
@@ -99,17 +101,39 @@ public class DrawerActivity extends AppCompatActivity {
                     message.put("iv", Base64.getEncoder().encode(iv));
 
                     JSONObject request = new JSONObject();
-                    request.put("auth", message);
+                    request.put("list", message);
 
                     Communications.sendMessage(socket, request);
 
                     JSONObject response = Communications.getMessage(socket);
-                    // FIXME: verify signature and separate list
+                    iv = Base64.getDecoder().decode(response.getString("iv"));
+
+                    // Authorization requests
+                    response = new JSONObject(
+                            new String(
+                                    Cryptography.decipherAES(
+                                            Base64.getDecoder().decode(response.getString("content")), secK, iv)));
+
+                    // Check integrity
+                    if (Base64.getDecoder().decode(response.getString("hash")) != Cryptography.digest(response.getString("content").getBytes())) {
+                        System.err.println("Got tampered response while asking for pending authorization requests");
+                        Communications.closeConnection(socket);
+                        return;
+                    }
+
+                    JSONArray pending = response.getJSONArray("content");
 
                     Fragment fragment = getSupportFragmentManager().findFragmentById(R.id.authorizationFragment);
                     if (fragment != null) {
-                        // FIXME: Properly convert items
-                        ((authorizationFragment) fragment).list = new ArrayList<>((Collection<? extends AuthorizationItem>) response);
+                        List<AuthorizationItem> list = new ArrayList<>();
+
+                        // Convert to AuthorizationItem
+                        for (int i = 0; i < pending.length(); i++) {
+                            // TODO: add timestamp???
+                            list.add(new AuthorizationItem(pending.getJSONArray(0).getString(0)));
+                        }
+
+                        ((authorizationFragment) fragment).list = list;
                     }
 
                     Communications.closeConnection(socket);
