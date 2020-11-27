@@ -25,7 +25,7 @@ public class authorizationFragment extends Fragment {
 
     private RecyclerView recyclerView;
     private RecyclerView.LayoutManager layoutManager;
-    public List<AuthorizationItem> list;
+    public List<AuthorizationItem> list = new ArrayList<>();
     private AuthorizationAdapter recyclerAdapter;
 
     @Override
@@ -36,16 +36,10 @@ public class authorizationFragment extends Fragment {
         View view = inflater.inflate(R.layout.fragment_authorization, container, false);
 
         // setting up the recycler view with layout manager
-        this.recyclerView = view.findViewById(R.id.authoriztionRecyclerView);
+        this.recyclerView = view.findViewById(R.id.authorizationRecyclerView);
         this.recyclerView.setHasFixedSize(true);
         this.layoutManager = new LinearLayoutManager(getActivity());
         this.recyclerView.setLayoutManager(this.layoutManager);
-
-        // setting up the items to be displayed
-        List<String> hashes= Arrays.asList(getResources().getStringArray(R.array.items_list));
-        this.list = new ArrayList<>();
-        for (String hash : hashes)
-            this.list.add(new AuthorizationItem(hash));
 
         // sending the list to the adapter
         this.recyclerAdapter = new AuthorizationAdapter(getActivity(), this.list);
@@ -114,6 +108,7 @@ public class authorizationFragment extends Fragment {
     public void acceptAuthorization(int position) {
         // accept authorization confirmed
         AuthorizationItem item = this.list.get(position);
+        ((DrawerActivity) getActivity()).answerAuthRequest(item.getHash(), true);
         item.setHash("accepted");
         recyclerAdapter.notifyItemChanged(position);
     }
@@ -121,7 +116,7 @@ public class authorizationFragment extends Fragment {
     public void declineAuthorization(int position) {
         // decline authorization confirmed
         AuthorizationItem item = this.list.get(position);
-        item.setHash("cancelled");
+        ((DrawerActivity) getActivity()).answerAuthRequest(item.getHash(), false);
         recyclerAdapter.notifyItemChanged(position);
     }
 }

@@ -19,6 +19,8 @@ import org.json.JSONArray;
 import org.json.JSONObject;
 
 import java.net.Socket;
+import java.security.PublicKey;
+import java.security.cert.Certificate;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Base64;
@@ -78,69 +80,7 @@ public class DrawerActivity extends AppCompatActivity {
         this.timer.schedule(new TimerTask() {
             @Override
             public void run() {
-                // Poll auth server
-                try {
-                    Socket socket = Communications.openConnection(Communications.AUTH_HOSTNAME, Communications.AUTH_PORT);
-                    JSONObject message = new JSONObject();
-                    message.put("username", username);
-
-                    long ts = System.currentTimeMillis() / 1000L;
-
-                    JSONObject content = new JSONObject();
-                    content.put("username", username);
-                    content.put("ts", ts);
-                    content.put("signature", Cryptography.sign((username + ts).getBytes(), crypto.getKeyPair().getPrivate()));
-
-                    byte[] iv = Cryptography.generateIV();
-                    byte[] key = Arrays.copyOfRange(Cryptography.digest(totp.getSecret()), 0, 16);
-
-                    SecretKey secK = new SecretKeySpec(key, 0, key.length, "AES");
-
-                    message.put("content", Base64.getEncoder().encode(Cryptography.cipherAES(content.toString().getBytes(), secK, iv)));
-
-                    message.put("iv", Base64.getEncoder().encode(iv));
-
-                    JSONObject request = new JSONObject();
-                    request.put("list", message);
-
-                    Communications.sendMessage(socket, request);
-
-                    JSONObject response = Communications.getMessage(socket);
-                    iv = Base64.getDecoder().decode(response.getString("iv"));
-
-                    // Authorization requests
-                    response = new JSONObject(
-                            new String(
-                                    Cryptography.decipherAES(
-                                            Base64.getDecoder().decode(response.getString("content")), secK, iv)));
-
-                    // Check integrity
-                    if (Base64.getDecoder().decode(response.getString("hash")) != Cryptography.digest(response.getString("content").getBytes())) {
-                        System.err.println("Got tampered response while asking for pending authorization requests");
-                        Communications.closeConnection(socket);
-                        return;
-                    }
-
-                    JSONArray pending = response.getJSONArray("content");
-
-                    Fragment fragment = getSupportFragmentManager().findFragmentById(R.id.authorizationFragment);
-                    if (fragment != null) {
-                        List<AuthorizationItem> list = new ArrayList<>();
-
-                        // Convert to AuthorizationItem
-                        for (int i = 0; i < pending.length(); i++) {
-                            // TODO: add timestamp???
-                            list.add(new AuthorizationItem(pending.getJSONArray(0).getString(0)));
-                        }
-
-                        ((authorizationFragment) fragment).list = list;
-                    }
-
-                    Communications.closeConnection(socket);
-                } catch (Exception e) {
-                    // FIXME: Properly handle the exception
-                    e.printStackTrace();
-                }
+                pollAuthRequests();
             }
         }, 0, POLL_PERIOD * 60 * 1000);
 
@@ -190,6 +130,137 @@ public class DrawerActivity extends AppCompatActivity {
             } catch (Exception e) {
                 e.printStackTrace();
             }
+        }
+    }
+
+    /**
+     * Poll auth for pending authorization requests (with custom protocol)
+     */
+    private void pollAuthRequests() {
+        try {
+            Socket socket = Communications.openConnection(Communications.AUTH_HOSTNAME, Communications.AUTH_PORT);
+            JSONObject message = new JSONObject();
+            message.put("username", username);
+
+            long ts = System.currentTimeMillis() / 1000L;
+
+            JSONObject content = new JSONObject();
+            content.put("username", username);
+            content.put("ts", ts);
+            content.put("signature", Cryptography.sign((username + ts).getBytes(), crypto.getKeyPair().getPrivate()));
+
+            byte[] iv = Cryptography.generateIV();
+            byte[] key = Cryptography.digest(totp.getSecret());
+
+            SecretKey secK = new SecretKeySpec(key, 0, key.length, "AES");
+
+            message.put("content", Base64.getEncoder().encode(Cryptography.cipherAES(content.toString().getBytes(), secK, iv)));
+
+            message.put("iv", Base64.getEncoder().encode(iv));
+
+            JSONObject request = new JSONObject();
+            request.put("list", message);
+
+            Communications.sendMessage(socket, request);
+
+            JSONObject response = Communications.getMessage(socket);
+
+            Communications.closeConnection(socket);
+
+            iv = Base64.getDecoder().decode(response.getString("iv"));
+
+            // Authorization requests
+            response = new JSONObject(
+                    new String(
+                            Cryptography.decipherAES(
+                                    Base64.getDecoder().decode(response.getString("content")), secK, iv)));
+
+            // Check integrity
+            if (Base64.getDecoder().decode(response.getString("hash")) != Cryptography.digest(response.getString("content").getBytes())) {
+                System.err.println("Got tampered response while asking for pending authorization requests");
+                return;
+            }
+
+            JSONArray pending = response.getJSONArray("content");
+
+            Fragment fragment = getSupportFragmentManager().findFragmentById(R.id.authorizationFragment);
+            if (fragment != null) {
+                List<AuthorizationItem> list = new ArrayList<>();
+
+                // Convert to AuthorizationItem
+                for (int i = 0; i < pending.length(); i++) {
+                    // TODO: add timestamp???
+                    list.add(new AuthorizationItem(pending.getJSONArray(0).getString(0)));
+                }
+
+                ((authorizationFragment) fragment).list = list;
+            }
+        } catch (Exception e) {
+            // FIXME: Properly handle the exception
+            e.printStackTrace();
+        }
+    }
+
+    /**
+     * Send response to Auth server to accept/decline a request (with custom protocol)
+     *
+     * @param hash: the hash of the request to accept/decline
+     * @param accepted: whether the request was accepted by the user or not
+     */
+    public void answerAuthRequest(String hash, boolean accepted) {
+        try {
+            Socket socket = Communications.openConnection(Communications.AUTH_HOSTNAME, Communications.AUTH_PORT);
+
+            JSONObject message = new JSONObject();
+            message.put("username", username);
+
+            long ts = System.currentTimeMillis() / 1000L;
+
+            JSONObject content = new JSONObject();
+            String status = (accepted ? "OK" : "NO");
+            content.put("resp", status);
+            content.put("ts", ts);
+            content.put("hash", hash);
+            content.put("signature", Cryptography.sign((ts + status + hash).getBytes(), crypto.getKeyPair().getPrivate()));
+
+            byte[] iv = Cryptography.generateIV();
+            byte[] key = Cryptography.digest(totp.getSecret());
+
+            SecretKey secK = new SecretKeySpec(key, 0, key.length, "AES");
+
+            message.put("content", Base64.getEncoder().encode(Cryptography.cipherAES(content.toString().getBytes(), secK, iv)));
+            message.put("iv", Base64.getEncoder().encode(iv));
+
+            JSONObject request = new JSONObject();
+            request.put("auth", message);
+
+            Communications.sendMessage(socket, message);
+
+            JSONObject response = Communications.getMessage(socket);
+
+            Communications.closeConnection(socket);
+
+            iv = Base64.getDecoder().decode(response.getString("iv"));
+
+            response = new JSONObject(
+                    new String(
+                            Cryptography.decipherAES(
+                                    Base64.getDecoder().decode(response.getString("content")), secK, iv)));
+
+            PublicKey authKey = this.crypto.readCertificateFromResource(R.raw.auth).getPublicKey();
+
+            String toVerify = response.getString("resp") + response.getString("ts");
+
+            Cryptography.verify(toVerify.getBytes(), Base64.getDecoder().decode(response.getString("signature")), authKey);
+
+            if (!response.getString("resp").equals("OK")) {
+                // TODO: Retry?
+                System.err.println("Could not " + (accepted ? "accept" : "decline") + " the authorization request with hash " + hash);
+            }
+
+        } catch (Exception e) {
+            // FIXME: Properly handle the exception
+            e.printStackTrace();
         }
     }
 
