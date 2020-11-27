@@ -183,17 +183,16 @@ public class DrawerActivity extends AppCompatActivity {
 
             JSONArray pending = response.getJSONArray("content");
 
-            Fragment fragment = getSupportFragmentManager().findFragmentById(R.id.authorizationFragment);
-            if (fragment != null) {
-                List<AuthorizationItem> list = new ArrayList<>();
+            List<AuthorizationItem> list = new ArrayList<>();
 
-                // Convert to AuthorizationItem
-                for (int i = 0; i < pending.length(); i++) {
-                    // TODO: add timestamp???
-                    list.add(new AuthorizationItem(pending.getJSONArray(0).getString(0)));
-                }
+            // Convert to AuthorizationItem
+            for (int i = 0; i < pending.length(); i++) {
+                JSONArray entry = pending.getJSONArray(i);
+                list.add(new AuthorizationItem(entry.getString(0), entry.getString(1)));
+            }
 
-                ((authorizationFragment) fragment).list = list;
+            synchronized (authorizationFragment.lock) {
+                authorizationFragment.list = list;
             }
         } catch (Exception e) {
             // FIXME: Properly handle the exception
@@ -221,7 +220,7 @@ public class DrawerActivity extends AppCompatActivity {
             content.put("resp", status);
             content.put("ts", ts);
             content.put("hash", hash);
-            content.put("signature", Cryptography.sign((ts + status + hash).getBytes(), crypto.getKeyPair().getPrivate()));
+            content.put("signature", Base64.getEncoder().encode(Cryptography.sign((ts + status + hash).getBytes(), crypto.getKeyPair().getPrivate())));
 
             byte[] iv = Cryptography.generateIV();
             byte[] key = Cryptography.digest(totp.getSecret());

@@ -25,7 +25,8 @@ public class authorizationFragment extends Fragment {
 
     private RecyclerView recyclerView;
     private RecyclerView.LayoutManager layoutManager;
-    public List<AuthorizationItem> list = new ArrayList<>();
+    public static List<AuthorizationItem> list = new ArrayList<>();
+    public static final Object lock = new Object();
     private AuthorizationAdapter recyclerAdapter;
 
     @Override
@@ -42,7 +43,7 @@ public class authorizationFragment extends Fragment {
         this.recyclerView.setLayoutManager(this.layoutManager);
 
         // sending the list to the adapter
-        this.recyclerAdapter = new AuthorizationAdapter(getActivity(), this.list);
+        this.recyclerAdapter = new AuthorizationAdapter(getActivity(), list);
         this.recyclerView.setAdapter(this.recyclerAdapter);
 
 
@@ -74,15 +75,15 @@ public class authorizationFragment extends Fragment {
 
     private void showPosition(int position){
         // shows the hash for a position
-        AuthorizationItem item = this.list.get(position);
-        AuthorizationDialog dialog = new AuthorizationDialog(position, "Confirmation ID", item.getHash());
+        AuthorizationItem item = list.get(position);
+        AuthorizationDialog dialog = new AuthorizationDialog(position, "Confirmation ID", item.getHash() + "\n" + item.getDate());
         dialog.show(getParentFragmentManager(), "item dialog");
     }
 
     private void acceptButtonPressed(int position){
         // show confirmation dialog for acceptance of item
-        AuthorizationItem item = this.list.get(position);
-        String text = "Are you sure you want to ACCEPT the item:\n" + item.getHash();
+        AuthorizationItem item = list.get(position);
+        String text = "Are you sure you want to ACCEPT the item:\n" + item.getHash() + "\n" + item.getDate();
         AuthorizationDialog dialog = new AuthorizationDialog(position, "Confirmation", text, AuthorizationDialog.ACCEPT, new AuthorizationDialog.DialogConfirmation() {
             @Override
             public void onAccept(int position) {
@@ -94,8 +95,8 @@ public class authorizationFragment extends Fragment {
 
     private void declineButtonPressed(int position){
         // show confirmation dialog for decline of item
-        AuthorizationItem item = this.list.get(position);
-        String text = "Are you sure you want to DECLINE the item:\n" + item.getHash();
+        AuthorizationItem item = list.get(position);
+        String text = "Are you sure you want to DECLINE the item:\n" + item.getHash() + "\n" + item.getDate();
         AuthorizationDialog dialog = new AuthorizationDialog(position, "Confirmation", text, AuthorizationDialog.DECLINE, new AuthorizationDialog.DialogConfirmation() {
             @Override
             public void onAccept(int position) {
@@ -107,16 +108,19 @@ public class authorizationFragment extends Fragment {
 
     public void acceptAuthorization(int position) {
         // accept authorization confirmed
-        AuthorizationItem item = this.list.get(position);
-        ((DrawerActivity) getActivity()).answerAuthRequest(item.getHash(), true);
-        item.setHash("accepted");
-        recyclerAdapter.notifyItemChanged(position);
+        synchronized (lock) {
+            AuthorizationItem item = list.get(position);
+            ((DrawerActivity) getActivity()).answerAuthRequest(item.getHash(), true);
+            recyclerAdapter.notifyItemRemoved(position);
+        }
     }
 
     public void declineAuthorization(int position) {
         // decline authorization confirmed
-        AuthorizationItem item = this.list.get(position);
-        ((DrawerActivity) getActivity()).answerAuthRequest(item.getHash(), false);
-        recyclerAdapter.notifyItemChanged(position);
+        synchronized (lock) {
+            AuthorizationItem item = list.get(position);
+            ((DrawerActivity) getActivity()).answerAuthRequest(item.getHash(), false);
+            recyclerAdapter.notifyItemRemoved(position);
+        }
     }
 }
