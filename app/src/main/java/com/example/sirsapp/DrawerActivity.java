@@ -36,7 +36,7 @@ import javax.crypto.spec.SecretKeySpec;
 
 public class DrawerActivity extends AppCompatActivity {
     private static final int SLEEP_TIME = 100;
-    private static final long POLL_PERIOD = 5;
+    private static final long POLL_PERIOD = 1;
 
     private TOTP totp;
     private Cryptography crypto;
@@ -147,16 +147,16 @@ public class DrawerActivity extends AppCompatActivity {
             JSONObject content = new JSONObject();
             content.put("username", username);
             content.put("ts", ts);
-            content.put("signature", Cryptography.sign((username + ts).getBytes(), crypto.getKeyPair().getPrivate()));
+            content.put("signature", Base64.getEncoder().encodeToString(Cryptography.sign((username + ts).getBytes(), crypto.getKeyPair().getPrivate())));
 
             byte[] iv = Cryptography.generateIV();
             byte[] key = Cryptography.digest(totp.getSecret());
 
             SecretKey secK = new SecretKeySpec(key, 0, key.length, "AES");
 
-            message.put("content", Base64.getEncoder().encode(Cryptography.cipherAES(content.toString().getBytes(), secK, iv)));
+            message.put("content", Base64.getEncoder().encodeToString(Cryptography.cipherAES(content.toString().getBytes(), secK, iv)));
 
-            message.put("iv", Base64.getEncoder().encode(iv));
+            message.put("iv", Base64.getEncoder().encodeToString(iv));
 
             JSONObject request = new JSONObject();
             request.put("list", message);
@@ -176,12 +176,13 @@ public class DrawerActivity extends AppCompatActivity {
                                     Base64.getDecoder().decode(response.getString("content")), secK, iv)));
 
             // Check integrity
-            if (Base64.getDecoder().decode(response.getString("hash")) != Cryptography.digest(response.getString("content").getBytes())) {
+            String hash = response.getString("response").replace("\\", "");
+            if (!response.getString("hash").equals(Base64.getEncoder().encodeToString(Cryptography.digest(hash.getBytes())))) {
                 System.err.println("Got tampered response while asking for pending authorization requests");
                 return;
             }
 
-            JSONArray pending = response.getJSONArray("content");
+            JSONArray pending = response.getJSONObject("response").getJSONArray("list");
 
             List<AuthorizationItem> list = new ArrayList<>();
 
@@ -193,6 +194,14 @@ public class DrawerActivity extends AppCompatActivity {
 
             synchronized (authorizationFragment.lock) {
                 authorizationFragment.list = list;
+                try {
+                    // FIXME: NOT WORKING
+                    runOnUiThread(() -> {
+                        ((authorizationFragment) getSupportFragmentManager().findFragmentById(R.id.authorizationFragment)).updateView();
+                    });
+                } catch(NullPointerException e) {
+                    return;
+                }
             }
         } catch (Exception e) {
             // FIXME: Properly handle the exception
@@ -206,7 +215,7 @@ public class DrawerActivity extends AppCompatActivity {
      * @param hash: the hash of the request to accept/decline
      * @param accepted: whether the request was accepted by the user or not
      */
-    public void answerAuthRequest(String hash, boolean accepted) {
+    public void answerAuthRequest(String hash, boolean accepted, int position) {
         try {
             Socket socket = Communications.openConnection(Communications.AUTH_HOSTNAME, Communications.AUTH_PORT);
 
@@ -220,20 +229,20 @@ public class DrawerActivity extends AppCompatActivity {
             content.put("resp", status);
             content.put("ts", ts);
             content.put("hash", hash);
-            content.put("signature", Base64.getEncoder().encode(Cryptography.sign((ts + status + hash).getBytes(), crypto.getKeyPair().getPrivate())));
+            content.put("signature", Base64.getEncoder().encodeToString(Cryptography.sign((ts + status + hash).getBytes(), crypto.getKeyPair().getPrivate())));
 
             byte[] iv = Cryptography.generateIV();
             byte[] key = Cryptography.digest(totp.getSecret());
 
             SecretKey secK = new SecretKeySpec(key, 0, key.length, "AES");
 
-            message.put("content", Base64.getEncoder().encode(Cryptography.cipherAES(content.toString().getBytes(), secK, iv)));
-            message.put("iv", Base64.getEncoder().encode(iv));
+            message.put("content", Base64.getEncoder().encodeToString(Cryptography.cipherAES(content.toString().getBytes(), secK, iv)));
+            message.put("iv", Base64.getEncoder().encodeToString(iv));
 
             JSONObject request = new JSONObject();
             request.put("auth", message);
 
-            Communications.sendMessage(socket, message);
+            Communications.sendMessage(socket, request);
 
             JSONObject response = Communications.getMessage(socket);
 
@@ -256,6 +265,8 @@ public class DrawerActivity extends AppCompatActivity {
                 // TODO: Retry?
                 System.err.println("Could not " + (accepted ? "accept" : "decline") + " the authorization request with hash " + hash);
             }
+
+            authorizationFragment.list.remove(position);
 
         } catch (Exception e) {
             // FIXME: Properly handle the exception

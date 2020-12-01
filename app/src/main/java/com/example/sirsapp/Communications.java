@@ -23,10 +23,11 @@ import javax.net.ssl.TrustManagerFactory;
 public class Communications {
     private final Cryptography crypto;
 
-    public static final String AUTH_HOSTNAME = "192.168.1.70";
-    public static final int AUTH_PORT = 1337;
-    public static final String CA_HOSTNAME = "192.168.1.70";
-    public static final int CA_PORT        = 8081;
+    public static final String AUTH_HOSTNAME = "10.13.37.5";
+    public static final int AUTH_PORT        = 1337;
+    public static final String CA_HOSTNAME   = "10.45.0.5";
+    public static final int CA_PORT          = 5000;
+
     private static final String attachmentName = "csr";
     private static final String attachmentFileName = "app.csr";
     private static final String crlf = "\r\n";

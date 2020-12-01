@@ -15,7 +15,6 @@ import com.example.sirsapp.ui.Authorization.AuthorizationDialog;
 import com.example.sirsapp.ui.Authorization.AuthorizationItem;
 
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 
 /**
@@ -42,15 +41,18 @@ public class authorizationFragment extends Fragment {
         this.layoutManager = new LinearLayoutManager(getActivity());
         this.recyclerView.setLayoutManager(this.layoutManager);
 
-        // sending the list to the adapter
-        this.recyclerAdapter = new AuthorizationAdapter(getActivity(), list);
-        this.recyclerView.setAdapter(this.recyclerAdapter);
-
+        this.updateView();
 
         //setting up the interface clickables
         setupOnClickButtons();
 
         return view;
+    }
+
+    public void updateView() {
+        // sending the list to the adapter
+        this.recyclerAdapter = new AuthorizationAdapter(getActivity(), list);
+        recyclerView.setAdapter(this.recyclerAdapter);
     }
 
     private void setupOnClickButtons() {
@@ -87,7 +89,9 @@ public class authorizationFragment extends Fragment {
         AuthorizationDialog dialog = new AuthorizationDialog(position, "Confirmation", text, AuthorizationDialog.ACCEPT, new AuthorizationDialog.DialogConfirmation() {
             @Override
             public void onAccept(int position) {
-                acceptAuthorization(position);
+                new Thread(() -> {
+                    acceptAuthorization(position);
+                }).start();
             }
         });
         dialog.show(getParentFragmentManager(), "item dialog");
@@ -100,7 +104,9 @@ public class authorizationFragment extends Fragment {
         AuthorizationDialog dialog = new AuthorizationDialog(position, "Confirmation", text, AuthorizationDialog.DECLINE, new AuthorizationDialog.DialogConfirmation() {
             @Override
             public void onAccept(int position) {
-                declineAuthorization(position);
+                new Thread(() -> {
+                    declineAuthorization(position);
+                }).start();
             }
         });
         dialog.show(getParentFragmentManager(), "item dialog");
@@ -110,17 +116,17 @@ public class authorizationFragment extends Fragment {
         // accept authorization confirmed
         synchronized (lock) {
             AuthorizationItem item = list.get(position);
-            ((DrawerActivity) getActivity()).answerAuthRequest(item.getHash(), true);
-            recyclerAdapter.notifyItemRemoved(position);
+            ((DrawerActivity) getActivity()).answerAuthRequest(item.getHash(), true, position);
         }
+        getActivity().runOnUiThread(() -> {recyclerAdapter.notifyItemRemoved(position); updateView(); });
     }
 
     public void declineAuthorization(int position) {
         // decline authorization confirmed
         synchronized (lock) {
             AuthorizationItem item = list.get(position);
-            ((DrawerActivity) getActivity()).answerAuthRequest(item.getHash(), false);
-            recyclerAdapter.notifyItemRemoved(position);
+            ((DrawerActivity) getActivity()).answerAuthRequest(item.getHash(), false, position);
         }
+        getActivity().runOnUiThread(() -> {recyclerAdapter.notifyItemRemoved(position); updateView(); });
     }
 }
