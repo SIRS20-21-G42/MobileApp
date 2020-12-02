@@ -13,11 +13,11 @@
     <fragment
         android:id="@+id/safeLocalFragment"
         android:name="com.example.sirsapp.safeLocalFragment"
-        android:label="fragment_safe_local"
+        android:label="@string/safe_local"
         tools:layout="@layout/fragment_safe_local" />
     <fragment
         android:id="@+id/authorizationFragment"
         android:name="com.example.sirsapp.authorizationFragment"
-        android:label="fragment_authorization"
+        android:label="@string/authorization"
         tools:layout="@layout/fragment_authorization" />
 </navigation>
