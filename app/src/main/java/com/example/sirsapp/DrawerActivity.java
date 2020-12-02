@@ -215,7 +215,7 @@ public class DrawerActivity extends AppCompatActivity {
      * @param hash: the hash of the request to accept/decline
      * @param accepted: whether the request was accepted by the user or not
      */
-    public void answerAuthRequest(String hash, boolean accepted, int position) {
+    public boolean answerAuthRequest(String hash, boolean accepted, int position) {
         try {
             Socket socket = Communications.openConnection(Communications.AUTH_HOSTNAME, Communications.AUTH_PORT);
 
@@ -264,13 +264,15 @@ public class DrawerActivity extends AppCompatActivity {
             if (!response.getString("resp").equals("OK")) {
                 // TODO: Retry?
                 System.err.println("Could not " + (accepted ? "accept" : "decline") + " the authorization request with hash " + hash);
+                return false;
             }
 
             authorizationFragment.list.remove(position);
-
+            return true;
         } catch (Exception e) {
             // FIXME: Properly handle the exception
             e.printStackTrace();
+            return false;
         }
     }
 

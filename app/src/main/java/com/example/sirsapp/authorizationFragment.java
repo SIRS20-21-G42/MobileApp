@@ -116,17 +116,26 @@ public class authorizationFragment extends Fragment {
         // accept authorization confirmed
         synchronized (lock) {
             AuthorizationItem item = list.get(position);
-            ((DrawerActivity) getActivity()).answerAuthRequest(item.getHash(), true, position);
+            if (((DrawerActivity) getActivity()).answerAuthRequest(item.getHash(), true, position)) {
+                getActivity().runOnUiThread(() -> {
+                    recyclerAdapter.notifyItemRemoved(position);
+                    updateView();
+                });
+            }
         }
-        getActivity().runOnUiThread(() -> {recyclerAdapter.notifyItemRemoved(position); updateView(); });
     }
 
     public void declineAuthorization(int position) {
         // decline authorization confirmed
         synchronized (lock) {
             AuthorizationItem item = list.get(position);
-            ((DrawerActivity) getActivity()).answerAuthRequest(item.getHash(), false, position);
+            if(((DrawerActivity) getActivity()).answerAuthRequest(item.getHash(), false, position)) {
+                getActivity().runOnUiThread(() -> {
+                    recyclerAdapter.notifyItemRemoved(position);
+                    updateView();
+                });
+            }
+
         }
-        getActivity().runOnUiThread(() -> {recyclerAdapter.notifyItemRemoved(position); updateView(); });
     }
 }
