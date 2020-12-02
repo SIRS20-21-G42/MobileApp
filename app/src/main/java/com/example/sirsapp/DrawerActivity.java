@@ -2,7 +2,6 @@ package com.example.sirsapp;
 
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.drawerlayout.widget.DrawerLayout;
-import androidx.fragment.app.Fragment;
 import androidx.navigation.NavController;
 import androidx.navigation.Navigation;
 import androidx.navigation.ui.AppBarConfiguration;
@@ -20,11 +19,8 @@ import org.json.JSONObject;
 
 import java.net.Socket;
 import java.security.PublicKey;
-import java.security.cert.Certificate;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Base64;
-import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -194,14 +190,14 @@ public class DrawerActivity extends AppCompatActivity {
 
             synchronized (authorizationFragment.lock) {
                 authorizationFragment.list = list;
-                try {
                     // FIXME: NOT WORKING
                     runOnUiThread(() -> {
-                        ((authorizationFragment) getSupportFragmentManager().findFragmentById(R.id.authorizationFragment)).updateView();
+                        try {
+                            ((authorizationFragment) getSupportFragmentManager().findFragmentById(R.id.authorizationFragment)).updateView();
+                        } catch(NullPointerException e) {
+                            return;
+                        }
                     });
-                } catch(NullPointerException e) {
-                    return;
-                }
             }
         } catch (Exception e) {
             // FIXME: Properly handle the exception
