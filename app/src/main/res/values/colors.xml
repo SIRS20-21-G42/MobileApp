@@ -12,4 +12,5 @@
     <color name="safeLocalUnsafeBackgroud">#F46C6C</color>
     <color name="safeLocalSafeLocation">#71BC47</color>
     <color name="safeLocalMarkUnsafeButton">#D51E1E</color>
+    <color name="colorPrimary">#FFFFFF</color>
 </resources>

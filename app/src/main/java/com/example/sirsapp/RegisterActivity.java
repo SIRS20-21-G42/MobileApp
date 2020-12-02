@@ -66,9 +66,10 @@ public class RegisterActivity extends AppCompatActivity {
             Certificate caCert = this.crypto.readCertificateFromResource(R.raw.ca);
 
             // generate CSR for pubK and get certificate(need to communicate with CA)
-            if (!checkFile(Cryptography.APP_CSR_FILE))
+            if (!checkFile(Cryptography.APP_CSR_FILE)) {
                 this.crypto.saveToFileNoEncryption(Cryptography.APP_CSR_FILE, Cryptography.generateCSR(username, keys));
-
+            }
+            
             if (!checkFile(Cryptography.APP_CERT_FILE)) {
                 boolean success = this.comms.getCertificateFromCA(Cryptography.APP_CSR_FILE, caCert);
                 if (!success) {
@@ -93,11 +94,12 @@ public class RegisterActivity extends AppCompatActivity {
             JSONObject message = calculateFirstMessage(username, keys, secretK, authCert.getPublicKey(), appCert, ts);
 
             // create auth connection
-            Socket connection = Communications.newAuthConnection();
+            Socket connection = Communications.openConnection(Communications.AUTH_HOSTNAME, Communications.AUTH_PORT);
 
             // Send message to Auth
-            JSONObject response = Communications.sendMessageToAuth(connection, message, false);
+            Communications.sendMessage(connection, message);
 
+            JSONObject response = Communications.getMessage(connection);
 
             BigInteger paramB = handleFirstResponse(response, secretK, authCert.getPublicKey());
             if (paramB == null){
@@ -110,8 +112,10 @@ public class RegisterActivity extends AppCompatActivity {
 
 
             // Send message to Auth
-            response = Communications.sendMessageToAuth(connection, message, true);
+            Communications.sendMessage(connection, message);
 
+            response = Communications.getMessage(connection);
+            Communications.closeConnection(connection);
 
             // validate server response
             if (!handleSecondResponse(response, secretK, authCert.getPublicKey())){
@@ -123,12 +127,17 @@ public class RegisterActivity extends AppCompatActivity {
 
             Intent intent = new Intent(this, DrawerActivity.class);
 
+            Bundle bundle = new Bundle();
+            bundle.putString("username", username);
+
+            intent.putExtras(bundle);
+
             startActivity(intent);
             finish();
 
         } catch (Exception e) {
-            runOnUiThread(() -> { outputError("An error occurred, please try again"); });
             System.out.println("ERROR!");
+            runOnUiThread(() -> { outputError("An error occurred, please try again"); });
             e.printStackTrace();
         }
     }
@@ -344,10 +353,10 @@ public class RegisterActivity extends AppCompatActivity {
      */
     private boolean validateUsername(String username) {
         if (username == null || username.equals("")) {
-            outputError("Please specify a username");
+            runOnUiThread(() -> {outputError("Please specify a username");});
             return false;
         } else if (!username.matches("[A-Za-z0-9_]+") || username.length() > 20) {
-            outputError("Invalid username");
+            runOnUiThread(() -> {outputError("Invalid username");});
             return false;
         }
         return true;
