@@ -15,4 +15,8 @@
     <string name="authorization">Authorization</string>
     <string name="insert_username">Insert username to register:</string>
     <string name="submit">Submit</string>
+    <string name="safeLocalMarkAsSafe">Mark as safe</string>
+    <string name="this_location_is_unsafe">This location is unsafe</string>
+    <string name="this_location_is_safe">This location is safe</string>
+    <string name="safeLocalMarkUnsafeButton">Mark as Unsafe</string>
 </resources>
