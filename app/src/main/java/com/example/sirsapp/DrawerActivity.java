@@ -7,6 +7,9 @@ import androidx.navigation.Navigation;
 import androidx.navigation.ui.AppBarConfiguration;
 import androidx.navigation.ui.NavigationUI;
 
+import android.content.Context;
+import android.net.wifi.WifiInfo;
+import android.net.wifi.WifiManager;
 import android.os.Bundle;
 import android.widget.ProgressBar;
 import android.widget.TextView;
@@ -15,11 +18,15 @@ import com.example.sirsapp.ui.Authorization.AuthorizationItem;
 import com.google.android.material.navigation.NavigationView;
 
 import org.json.JSONArray;
+import org.json.JSONException;
 import org.json.JSONObject;
 
+import java.io.File;
 import java.net.Socket;
+import java.nio.charset.StandardCharsets;
 import java.security.PublicKey;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Base64;
 import java.util.HashSet;
 import java.util.List;
@@ -33,6 +40,7 @@ import javax.crypto.spec.SecretKeySpec;
 public class DrawerActivity extends AppCompatActivity {
     private static final int SLEEP_TIME = 100;
     private static final long POLL_PERIOD = 1;
+    private static final String SAFE_WIFIS_FILE = "wifis.txt";
 
     private TOTP totp;
     private Cryptography crypto;
@@ -43,6 +51,9 @@ public class DrawerActivity extends AppCompatActivity {
     private NavController navController;
     private DrawerLayout drawerLayout;
     private AppBarConfiguration appBarConfig;
+
+    private Set<String> wifiIds;
+    private String previousLocalCheck;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -70,6 +81,12 @@ public class DrawerActivity extends AppCompatActivity {
         NavigationView navView = findViewById(R.id.navView);
         NavigationUI.setupWithNavController(navView, navController);
 
+        try {
+            this.wifiIds = getSafeWifiSet();
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+
         // Run as daemon
         this.timer = new Timer(true);
 
@@ -77,6 +94,11 @@ public class DrawerActivity extends AppCompatActivity {
             @Override
             public void run() {
                 pollAuthRequests();
+                try {
+                    checkLocalStatus();
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
             }
         }, 0, POLL_PERIOD * 60 * 1000);
 
@@ -92,6 +114,104 @@ public class DrawerActivity extends AppCompatActivity {
         }
 
         new Thread(this::generateOTP).start();
+    }
+
+    private HashSet<String> getSafeWifiSet() throws Exception {
+        File file = new File(getApplicationContext().getFilesDir(), SAFE_WIFIS_FILE);
+
+        if (file.exists()) {
+            String wifis = new String(crypto.getFromFile(SAFE_WIFIS_FILE), StandardCharsets.UTF_8);
+            return new HashSet<>(Arrays.asList(wifis.split(",")));
+        }
+
+        return new HashSet<>();
+    }
+    public boolean addSafeWifi(int wifiId) throws Exception {
+        if (this.wifiIds.add("" + wifiId)){
+            this.crypto.saveToFile(SAFE_WIFIS_FILE, String.join(",", this.wifiIds).getBytes());
+        }
+        return true;
+    }
+
+    public boolean removeSafeWifi(int wifiId) throws Exception {
+        if (this.wifiIds.remove("" + wifiId)){
+            this.crypto.saveToFile(SAFE_WIFIS_FILE, String.join(",", this.wifiIds).getBytes());
+        }
+        return true;
+
+    }
+
+    public String checkCurrentWifi() {
+        int wifiId = getWifiId();
+        if (this.wifiIds.contains("" + wifiId))
+            return "SAFE";
+        else
+            return "UNSAFE";
+    }
+
+    public int getWifiId() {
+        WifiManager wifiManager = (WifiManager) getApplicationContext().getSystemService(Context.WIFI_SERVICE);
+        WifiInfo wifiInfo = wifiManager.getConnectionInfo();
+        return wifiInfo.getNetworkId();
+    }
+
+    private void checkLocalStatus() throws Exception {
+        if (checkCurrentWifi().equals("SAFE")) {
+            updateLocalStatus("OK");
+            this.previousLocalCheck = "SAFE";
+        } else if (this.previousLocalCheck.equals("SAFE")){
+            updateLocalStatus("NO");
+            this.previousLocalCheck = "UNSAFE";
+        }
+    }
+
+    public boolean updateLocalStatus(String new_status) throws Exception {
+        // username || {username || ts || {sha(...)}appPrivK}secretK
+        Socket socket = Communications.openConnection(Communications.AUTH_HOSTNAME, Communications.AUTH_PORT);
+        long ts = System.currentTimeMillis() / 1000L;
+        JSONObject request = new JSONObject();
+        JSONObject message = new JSONObject();
+        JSONObject content = new JSONObject();
+
+        content.put("username", this.username);
+        content.put("ts", "" + ts);
+        content.put("safe", new_status);
+        String to_sign = this.username + ts + new_status;
+        String signature = Base64.getEncoder().encodeToString(Cryptography.sign(to_sign.getBytes(), this.crypto.getKeyPair().getPrivate()));
+        content.put("signature", signature);
+
+        byte[] iv = Cryptography.generateIV();
+        byte[] key = Cryptography.digest(totp.getSecret());
+        SecretKey secK = new SecretKeySpec(key, 0, key.length, "AES");
+
+        message.put("username", this.username);
+        message.put("content", Base64.getEncoder().encodeToString(Cryptography.cipherAES(content.toString().getBytes(), secK, iv)));
+        message.put("iv", Base64.getEncoder().encodeToString(iv));
+
+        request.put("location", message);
+
+        Communications.sendMessage(socket, request);
+
+        JSONObject response = Communications.getMessage(socket);
+
+        Communications.closeConnection(socket);
+
+        iv = Base64.getDecoder().decode(response.getString("iv"));
+
+        // Authorization requests
+        response = new JSONObject(
+                new String(
+                        Cryptography.decipherAES(
+                                Base64.getDecoder().decode(response.getString("content")), secK, iv)));
+
+        String to_verify = response.getString("resp") + response.getString("ts");
+        // Check integrity
+        if (!Cryptography.verify(to_verify.getBytes(), Base64.getDecoder().decode(response.getString("signature")), this.crypto.readCertificateFromResource(R.raw.auth).getPublicKey()))
+            return false;
+        if (response.getString("ts").equals("" + ts) || !response.getString("resp").equals("OK"))
+            return false;
+        return true;
+
     }
 
     /**
