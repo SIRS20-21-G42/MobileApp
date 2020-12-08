@@ -208,9 +208,7 @@ public class DrawerActivity extends AppCompatActivity {
         // Check integrity
         if (!Cryptography.verify(to_verify.getBytes(), Base64.getDecoder().decode(response.getString("signature")), this.crypto.readCertificateFromResource(R.raw.auth).getPublicKey()))
             return false;
-        if (response.getString("ts").equals("" + ts) || !response.getString("resp").equals("OK"))
-            return false;
-        return true;
+        return response.getString("ts").equals("" + ts) && response.getString("resp").equals("OK");
 
     }
 

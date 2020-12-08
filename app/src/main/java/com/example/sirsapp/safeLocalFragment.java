@@ -63,15 +63,17 @@ public class safeLocalFragment extends Fragment {
                 try {
                     if(!((DrawerActivity)getActivity()).updateLocalStatus(markAsSafe ? "OK" : "NO"))
                         getActivity().runOnUiThread(() -> { Toast.makeText(getContext(), "Could not update internal server", Toast.LENGTH_LONG).show(); });
+                    getActivity().runOnUiThread( () -> updateUI(view, markAsSafe) );
                 } catch (Exception e) {
                     e.printStackTrace();
+                    getActivity().runOnUiThread(() -> updateUI(view, !markAsSafe) );
                 }
             }).start();
             // send information to auth
         } catch (Exception e) {
-            getActivity().runOnUiThread(() -> { Toast.makeText(getContext(), "An error occured, pleas try again!", Toast.LENGTH_LONG).show(); });
+            getActivity().runOnUiThread(() -> { Toast.makeText(getContext(), "An error occurred, please try again!", Toast.LENGTH_LONG).show(); });
+            updateUI(view, !markAsSafe);
         }
-        updateUI(view, markAsSafe);
     }
 
     private void updateUI(View view, boolean safe) {
