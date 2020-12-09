@@ -39,7 +39,7 @@ import javax.crypto.spec.SecretKeySpec;
 
 public class DrawerActivity extends AppCompatActivity {
     private static final int SLEEP_TIME = 100;
-    private static final long POLL_PERIOD = 99999;
+    private static final long POLL_PERIOD = 1;
     private static final String SAFE_WIFIS_FILE = "wifis.txt";
 
     private TOTP totp;
