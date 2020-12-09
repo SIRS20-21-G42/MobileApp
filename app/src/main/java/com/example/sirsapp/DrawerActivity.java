@@ -39,7 +39,7 @@ import javax.crypto.spec.SecretKeySpec;
 
 public class DrawerActivity extends AppCompatActivity {
     private static final int SLEEP_TIME = 100;
-    private static final long POLL_PERIOD = 1;
+    private static final long POLL_PERIOD = 99999;
     private static final String SAFE_WIFIS_FILE = "wifis.txt";
 
     private TOTP totp;
@@ -421,12 +421,11 @@ public class DrawerActivity extends AppCompatActivity {
             Cryptography.verify(toVerify.getBytes(), Base64.getDecoder().decode(response.getString("signature")), authKey);
 
             if (!response.getString("resp").equals("OK")) {
-                // TODO: Retry?
-                System.err.println("Could not " + (accepted ? "accept" : "decline") + " the authorization request with hash " + hash);
                 return false;
             }
 
-            authorizationFragment.list.remove(position);
+            if (position != -1)
+                authorizationFragment.list.remove(position);
             return true;
         } catch (Exception e) {
             // FIXME: Properly handle the exception

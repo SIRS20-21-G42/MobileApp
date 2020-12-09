@@ -5,12 +5,26 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     tools:context=".authenticationCodeFragment"
-    android:background="@color/colorPrimary">
+    android:background="@color/colorPrimary"
+    android:orientation="horizontal">
 
-    <androidx.recyclerview.widget.RecyclerView
+    <com.google.android.material.circularreveal.CircularRevealFrameLayout
         android:layout_width="match_parent"
-        android:layout_height="match_parent"
-        android:id="@+id/authorizationRecyclerView"
-        android:scrollbars="vertical"/>
+        android:layout_height="match_parent">
+        <androidx.recyclerview.widget.RecyclerView
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:id="@+id/authorizationRecyclerView"
+            android:scrollbars="vertical"/>
 
+
+        <com.google.android.material.floatingactionbutton.FloatingActionButton
+            android:id="@+id/fab"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="end|bottom"
+            android:layout_margin="16dp"
+            android:backgroundTint="#00ABEE"
+            android:src="@drawable/ic_baseline_camera_alt_24" />
+    </com.google.android.material.circularreveal.CircularRevealFrameLayout>
 </LinearLayout>
