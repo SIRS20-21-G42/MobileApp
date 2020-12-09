@@ -7,51 +7,28 @@ import androidx.fragment.app.Fragment;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.view.ViewParent;
+import android.widget.Button;
+import android.widget.ImageView;
+import android.widget.TextView;
+import android.widget.Toast;
 
-/**
- * A simple {@link Fragment} subclass.
- * Use the {@link safeLocalFragment#newInstance} factory method to
- * create an instance of this fragment.
- */
+import java.util.ArrayList;
+import java.util.List;
+
 public class safeLocalFragment extends Fragment {
 
-    // TODO: Rename parameter arguments, choose names that match
-    // the fragment initialization parameters, e.g. ARG_ITEM_NUMBER
-    private static final String ARG_PARAM1 = "param1";
-    private static final String ARG_PARAM2 = "param2";
-
-    // TODO: Rename and change types of parameters
-    private String mParam1;
-    private String mParam2;
+    private List<Integer> wifiIds;
 
     public safeLocalFragment() {
         // Required empty public constructor
-    }
-
-    /**
-     * Use this factory method to create a new instance of
-     * this fragment using the provided parameters.
-     *
-     * @param param1 Parameter 1.
-     * @param param2 Parameter 2.
-     * @return A new instance of fragment safeLocalFragment.
-     */
-    // TODO: Rename and change types and number of parameters
-    public static safeLocalFragment newInstance(String param1, String param2) {
-        safeLocalFragment fragment = new safeLocalFragment();
-        Bundle args = new Bundle();
-        args.putString(ARG_PARAM1, param1);
-        args.putString(ARG_PARAM2, param2);
-        fragment.setArguments(args);
-        return fragment;
     }
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         if (getArguments() != null) {
-            mParam1 = getArguments().getString(ARG_PARAM1);
-            mParam2 = getArguments().getString(ARG_PARAM2);
+
         }
     }
 
@@ -59,6 +36,58 @@ public class safeLocalFragment extends Fragment {
     public View onCreateView(LayoutInflater inflater, ViewGroup container,
                              Bundle savedInstanceState) {
         // Inflate the layout for this fragment
-        return inflater.inflate(R.layout.fragment_safe_local, container, false);
+
+        View view = inflater.inflate(R.layout.fragment_safe_local, container, false);
+
+        boolean status = ((DrawerActivity)getActivity()).checkCurrentWifi().equals("SAFE");
+        updateUI(view, status);
+
+        Button button = view.findViewById(R.id.safeLocalButton);
+        button.setOnClickListener(this::changeLocalStatus);
+
+        return view;
     }
+
+    public void changeLocalStatus(View view){
+        Button button = view.findViewById(R.id.safeLocalButton);
+        View parent_view = (View) button.getParent();
+        TextView textView = parent_view.findViewById(R.id.safeLocalTextView);
+        boolean markAsSafe = textView.getText().equals(getResources().getString(R.string.this_location_is_unsafe));
+        try {
+            int wifiId = ((DrawerActivity)getActivity()).getWifiId();
+            if (markAsSafe)
+                ((DrawerActivity)getActivity()).addSafeWifi(wifiId);
+            else
+                ((DrawerActivity)getActivity()).removeSafeWifi(wifiId);
+            new Thread(() -> {
+                try {
+                    if(!((DrawerActivity)getActivity()).updateLocalStatus(markAsSafe ? "OK" : "NO"))
+                        getActivity().runOnUiThread(() -> { Toast.makeText(getContext(), "Could not update internal server", Toast.LENGTH_LONG).show(); });
+                    getActivity().runOnUiThread( () -> updateUI(view, markAsSafe) );
+                } catch (Exception e) {
+                    e.printStackTrace();
+                    getActivity().runOnUiThread(() -> updateUI(view, !markAsSafe) );
+                }
+            }).start();
+            // send information to auth
+        } catch (Exception e) {
+            getActivity().runOnUiThread(() -> { Toast.makeText(getContext(), "An error occurred, please try again!", Toast.LENGTH_LONG).show(); });
+            updateUI(view, !markAsSafe);
+        }
+    }
+
+    private void updateUI(View view, boolean safe) {
+        Button button = view.findViewById(R.id.safeLocalButton);
+        View parent_view = (View) button.getParent();
+        TextView textView = parent_view.findViewById(R.id.safeLocalTextView);
+        ImageView image = parent_view.findViewById(R.id.safeLocalIcon);
+
+        textView.setText(safe ? R.string.this_location_is_safe : R.string.this_location_is_unsafe);
+        button.setText(safe ? R.string.safeLocalMarkUnsafeButton : R.string.safeLocalMarkAsSafe);
+        button.setBackgroundColor(safe ? getResources().getColor(R.color.safeLocalMarkUnsafeButton, null) : getResources().getColor(R.color.safeLocalMakeSafeButton, null));
+        image.setImageResource(safe ? R.drawable.ic_baseline_check_24 : R.drawable.ic_baseline_clear_24);
+        parent_view.setBackgroundColor(safe ? getResources().getColor(R.color.safeLocalSafeLocation, null) : getResources().getColor(R.color.safeLocalUnsafeBackgroud, null));
+    }
+
+
 }
