@@ -48,17 +48,30 @@ public class RegisterActivity extends AppCompatActivity {
         setContentView(R.layout.activity_register);
     }
 
+    /**
+     * Register a user after button press
+     *
+     * @param view: button view
+     */
     public void registerUser(View view) {
         new Thread(() -> { registerAsyncUser(view); }).start();
     }
 
+    /**
+     * Register a user asynchronously
+     *
+     * @param view: button view
+     */
     public void registerAsyncUser(View view){
 
         closeKeyboard();
+        View progress = ((View) view.getParent()).findViewById(R.id.registerProgress);
 
         String username = ((EditText) findViewById(R.id.usernameEditText)).getText().toString();
-        if (!validateUsername(username))
+        if (!validateUsername(username, progress))
             return;
+
+        runOnUiThread(() -> { progress.setVisibility(View.VISIBLE); });
         try {
             // get pubK and privK of the app
             KeyPair keys = this.crypto.getKeyPair();
@@ -73,7 +86,7 @@ public class RegisterActivity extends AppCompatActivity {
             if (!checkFile(Cryptography.APP_CERT_FILE)) {
                 boolean success = this.comms.getCertificateFromCA(Cryptography.APP_CSR_FILE, caCert);
                 if (!success) {
-                    runOnUiThread(() -> { outputError("An error occurred, please try again"); });
+                    runOnUiThread(() -> { outputError("An error occurred, please try again", progress); });
                     return;
                 }
             }
@@ -101,9 +114,9 @@ public class RegisterActivity extends AppCompatActivity {
 
             JSONObject response = Communications.getMessage(connection);
 
-            BigInteger paramB = handleFirstResponse(response, secretK, authCert.getPublicKey());
+            BigInteger paramB = handleFirstResponse(response, secretK, authCert.getPublicKey(), ts);
             if (paramB == null){
-                runOnUiThread(() -> { outputError("An error occurred, please try again"); });
+                runOnUiThread(() -> { outputError("An error occurred, please try again", progress); });
                 return;
             }
 
@@ -118,8 +131,8 @@ public class RegisterActivity extends AppCompatActivity {
             Communications.closeConnection(connection);
 
             // validate server response
-            if (!handleSecondResponse(response, secretK, authCert.getPublicKey())){
-                runOnUiThread(() -> { outputError("An error occurred, please try again"); });
+            if (!handleSecondResponse(response, secretK, authCert.getPublicKey(), ts)){
+                runOnUiThread(() -> { outputError("An error occurred, please try again", progress); });
                 return;
             }
 
@@ -137,7 +150,7 @@ public class RegisterActivity extends AppCompatActivity {
 
         } catch (Exception e) {
             System.out.println("ERROR!");
-            runOnUiThread(() -> { outputError("An error occurred, please try again"); });
+            runOnUiThread(() -> { outputError("An error occurred, please try again", progress); });
             e.printStackTrace();
         }
     }
@@ -200,7 +213,7 @@ public class RegisterActivity extends AppCompatActivity {
      * @return public application DH parameter
      * @throws Exception for now throws all the occurred exceptions
      */
-    private BigInteger handleFirstResponse(JSONObject response, SecretKey secK, PublicKey authPubkey) throws Exception {
+    private BigInteger handleFirstResponse(JSONObject response, SecretKey secK, PublicKey authPubkey, long originalTs) throws Exception {
         String contentEncoded = response.getString("content");
 
         // get iv used to encrypt the content
@@ -219,7 +232,7 @@ public class RegisterActivity extends AppCompatActivity {
 
         // verify signature
         String stringToVerify = ts + g + n + paramA;
-        boolean success = checkRequest(stringToVerify, signature, ts, authPubkey);
+        boolean success = checkRequest(stringToVerify, signature, ts, authPubkey, originalTs);
         if (!success)
             return null;
 
@@ -275,7 +288,7 @@ public class RegisterActivity extends AppCompatActivity {
      * @return true if the response is accepted, false otherwise
      * @throws Exception for now throws all the occurred exceptions
      */
-    private boolean handleSecondResponse(JSONObject response, SecretKey secK, PublicKey authPubkey) throws Exception {
+    private boolean handleSecondResponse(JSONObject response, SecretKey secK, PublicKey authPubkey, long originalTs) throws Exception {
         String contentEncoded = response.getString("content");
 
         // get iv used to encrypt the content
@@ -292,7 +305,7 @@ public class RegisterActivity extends AppCompatActivity {
 
         // verify signature
         String stringToVerify = ts + resp;
-        boolean success = checkRequest(stringToVerify, signature, ts, authPubkey);
+        boolean success = checkRequest(stringToVerify, signature, ts, authPubkey, originalTs);
         if (!success)
             return false;
 
@@ -309,29 +322,14 @@ public class RegisterActivity extends AppCompatActivity {
      * @return true if the signature is correct and the response timestamp is within the boundary limits
      * @throws Exception for now throws all the occurred exceptions
      */
-    private boolean checkRequest(String stringToVerify, String signature, String ts, PublicKey authPubkey) throws Exception {
+    private boolean checkRequest(String stringToVerify, String signature, String ts, PublicKey authPubkey, long originalTs) throws Exception {
         // verify signature
         boolean success = Cryptography.verify(stringToVerify.getBytes(), Base64.getDecoder().decode(signature), authPubkey);
         if (!success)
             return false;
 
-        // get current ts
-        long currentTs = System.currentTimeMillis() / 1000L;
-        Date currentDate = new java.util.Date(currentTs*1000);
-        Date reqTs = new Date(Long.parseLong(ts)*1000);
-        Calendar c = Calendar.getInstance();
-        c.setTime(currentDate);
-
-        // set upper limit of 1 minute
-        c.add(Calendar.MINUTE, 1);
-        Date upperLimit = c.getTime();
-
-        // set lower limit of 2 minutes
-        c.add(Calendar.MINUTE, -2);
-        Date bottomLimit = c.getTime();
-
         // verify ts limits
-        return !upperLimit.before(reqTs) && !bottomLimit.after(reqTs);
+        return ts.equals("" + originalTs);
     }
 
     /**
@@ -351,12 +349,12 @@ public class RegisterActivity extends AppCompatActivity {
      * @param username: username to be verified
      * @return true if the username can be accepted, false otherwise
      */
-    private boolean validateUsername(String username) {
+    private boolean validateUsername(String username, View progress) {
         if (username == null || username.equals("")) {
-            runOnUiThread(() -> {outputError("Please specify a username");});
+            runOnUiThread(() -> {outputError("Please specify a username", progress);});
             return false;
         } else if (!username.matches("[A-Za-z0-9_]+") || username.length() > 20) {
-            runOnUiThread(() -> {outputError("Invalid username");});
+            runOnUiThread(() -> {outputError("Invalid username", progress);});
             return false;
         }
         return true;
@@ -379,8 +377,9 @@ public class RegisterActivity extends AppCompatActivity {
      *
      * @param s: string to be printed to the screen
      */
-    private void outputError(String s) {
+    private void outputError(String s, View progress) {
         Toast.makeText(this, s, Toast.LENGTH_LONG).show();
+        progress.setVisibility(View.GONE);
     }
 
 }

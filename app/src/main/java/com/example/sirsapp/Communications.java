@@ -11,6 +11,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.net.HttpURLConnection;
+import java.net.InetSocketAddress;
 import java.net.Socket;
 import java.net.URL;
 import java.security.KeyStore;
@@ -47,9 +48,10 @@ public class Communications {
      * @throws Exception for now throws all the occurred exceptions
      */
     public static Socket openConnection(String hostname, int port) throws Exception {
-        Socket socket = new Socket(hostname, port);
-
+        Socket socket = new Socket();
         socket.setTcpNoDelay(true);
+        socket.connect(new InetSocketAddress(hostname, port), 5000);
+
 
         return socket;
     }

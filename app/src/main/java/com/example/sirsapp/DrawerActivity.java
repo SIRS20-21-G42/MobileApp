@@ -81,8 +81,10 @@ public class DrawerActivity extends AppCompatActivity {
         NavigationView navView = findViewById(R.id.navView);
         NavigationUI.setupWithNavController(navView, navController);
 
+        // initialize wifi checks
         try {
             this.wifiIds = getSafeWifiSet();
+            this.previousLocalCheck = checkCurrentWifi();
         } catch (Exception e) {
             e.printStackTrace();
         }
@@ -116,6 +118,12 @@ public class DrawerActivity extends AppCompatActivity {
         new Thread(this::generateOTP).start();
     }
 
+    /**
+     * Gets the stored safe wifis
+     *
+     * @return set of safe wifis
+     * @throws Exception for now throws all the occurred exceptions
+     */
     private HashSet<String> getSafeWifiSet() throws Exception {
         File file = new File(getApplicationContext().getFilesDir(), SAFE_WIFIS_FILE);
 
@@ -126,6 +134,14 @@ public class DrawerActivity extends AppCompatActivity {
 
         return new HashSet<>();
     }
+
+    /**
+     * adds a new safe wifi to the set and updates the local storage
+     *
+     * @param wifiId: id of the wifi to be added
+     * @return true if successfully added, false otherwise
+     * @throws Exception for now throws all the occurred exceptions
+     */
     public boolean addSafeWifi(int wifiId) throws Exception {
         if (this.wifiIds.add("" + wifiId)){
             this.crypto.saveToFile(SAFE_WIFIS_FILE, String.join(",", this.wifiIds).getBytes());
@@ -133,6 +149,13 @@ public class DrawerActivity extends AppCompatActivity {
         return true;
     }
 
+    /**
+     * removes a new safe wifi from the set and updates the local storage
+     *
+     * @param wifiId: id of the wifi to be removed
+     * @return true if successfully removed, false otherwise
+     * @throws Exception for now throws all the occurred exceptions
+     */
     public boolean removeSafeWifi(int wifiId) throws Exception {
         if (this.wifiIds.remove("" + wifiId)){
             this.crypto.saveToFile(SAFE_WIFIS_FILE, String.join(",", this.wifiIds).getBytes());
@@ -141,6 +164,11 @@ public class DrawerActivity extends AppCompatActivity {
 
     }
 
+    /**
+     * gets the status of the current wifi
+     *
+     * @return "SAFE" if the wifi is safe, "UNSAFE" otherwise
+     */
     public String checkCurrentWifi() {
         int wifiId = getWifiId();
         if (this.wifiIds.contains("" + wifiId))
@@ -149,12 +177,22 @@ public class DrawerActivity extends AppCompatActivity {
             return "UNSAFE";
     }
 
+    /**
+     * gets the current wifi id
+     *
+     * @return current wifi id
+     */
     public int getWifiId() {
         WifiManager wifiManager = (WifiManager) getApplicationContext().getSystemService(Context.WIFI_SERVICE);
         WifiInfo wifiInfo = wifiManager.getConnectionInfo();
         return wifiInfo.getNetworkId();
     }
 
+    /**
+     * checks if the local status has changed and if so, updates the auth
+     *
+     * @throws Exception for now throws all the occurred exceptions
+     */
     private void checkLocalStatus() throws Exception {
         if (checkCurrentWifi().equals("SAFE")) {
             updateLocalStatus("OK");
@@ -165,6 +203,13 @@ public class DrawerActivity extends AppCompatActivity {
         }
     }
 
+    /**
+     * sends the local status to the auth
+     *
+     * @param new_status: new status to send to the auth
+     * @return true if successfully sent to auth, false otherwise
+     * @throws Exception for now throws all the occurred exceptions
+     */
     public boolean updateLocalStatus(String new_status) throws Exception {
         // username || {username || ts || {sha(...)}appPrivK}secretK
         Socket socket = Communications.openConnection(Communications.AUTH_HOSTNAME, Communications.AUTH_PORT);
