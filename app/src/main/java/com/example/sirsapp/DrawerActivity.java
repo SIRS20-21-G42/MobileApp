@@ -13,6 +13,7 @@ import android.net.wifi.WifiManager;
 import android.os.Bundle;
 import android.widget.ProgressBar;
 import android.widget.TextView;
+import android.widget.Toast;
 
 import com.example.sirsapp.ui.Authorization.AuthorizationItem;
 import com.google.android.material.navigation.NavigationView;
@@ -22,9 +23,12 @@ import org.json.JSONException;
 import org.json.JSONObject;
 
 import java.io.File;
+import java.io.IOException;
 import java.net.Socket;
 import java.nio.charset.StandardCharsets;
+import java.security.InvalidKeyException;
 import java.security.PublicKey;
+import java.security.SignatureException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Base64;
@@ -34,6 +38,7 @@ import java.util.Set;
 import java.util.Timer;
 import java.util.TimerTask;
 
+import javax.crypto.BadPaddingException;
 import javax.crypto.SecretKey;
 import javax.crypto.spec.SecretKeySpec;
 
@@ -65,13 +70,7 @@ public class DrawerActivity extends AppCompatActivity {
             throw new RuntimeException("Couldn't get current user");
         }
 
-        try {
-            this.crypto = new Cryptography(getApplicationContext());
-        } catch (Exception e) {
-            // FIXME: Properly handle exception
-            e.printStackTrace();
-            throw new RuntimeException("Couldn't initialize crypto instance");
-        }
+        this.crypto = new Cryptography(getApplicationContext());
 
         this.totp = new TOTP(this.crypto);
 
@@ -102,7 +101,7 @@ public class DrawerActivity extends AppCompatActivity {
                     e.printStackTrace();
                 }
             }
-        }, 0, POLL_PERIOD * 60 * 1000);
+        }, 0, POLL_PERIOD * 10 * 1000);
 
         Set<Integer> topLevelDestinations = new HashSet<>();
         topLevelDestinations.add(R.id.authenticationCodeFragment);
@@ -122,14 +121,19 @@ public class DrawerActivity extends AppCompatActivity {
      * Gets the stored safe wifis
      *
      * @return set of safe wifis
-     * @throws Exception for now throws all the occurred exceptions
+     * @throws IOException if an I/O error occurs
      */
-    private HashSet<String> getSafeWifiSet() throws Exception {
+    private HashSet<String> getSafeWifiSet() throws IOException {
         File file = new File(getApplicationContext().getFilesDir(), SAFE_WIFIS_FILE);
 
         if (file.exists()) {
-            String wifis = new String(crypto.getFromFile(SAFE_WIFIS_FILE), StandardCharsets.UTF_8);
-            return new HashSet<>(Arrays.asList(wifis.split(",")));
+            try {
+                String wifis = new String(crypto.getFromFile(SAFE_WIFIS_FILE), StandardCharsets.UTF_8);
+
+                return new HashSet<>(Arrays.asList(wifis.split(",")));
+            } catch (BadPaddingException e) {
+                throw new RuntimeException("Tampered wifi file");
+            }
         }
 
         return new HashSet<>();
@@ -138,29 +142,25 @@ public class DrawerActivity extends AppCompatActivity {
     /**
      * adds a new safe wifi to the set and updates the local storage
      *
-     * @param wifiId: id of the wifi to be added
-     * @return true if successfully added, false otherwise
-     * @throws Exception for now throws all the occurred exceptions
+     * @param wifiId : id of the wifi to be added
+     * @throws IOException if file couldn't be opened
      */
-    public boolean addSafeWifi(int wifiId) throws Exception {
+    public void addSafeWifi(int wifiId) throws IOException {
         if (this.wifiIds.add("" + wifiId)){
             this.crypto.saveToFile(SAFE_WIFIS_FILE, String.join(",", this.wifiIds).getBytes());
         }
-        return true;
     }
 
     /**
      * removes a new safe wifi from the set and updates the local storage
      *
-     * @param wifiId: id of the wifi to be removed
-     * @return true if successfully removed, false otherwise
-     * @throws Exception for now throws all the occurred exceptions
+     * @param wifiId : id of the wifi to be removed
+     * @throws IOException if file couldn't be opened
      */
-    public boolean removeSafeWifi(int wifiId) throws Exception {
+    public void removeSafeWifi(int wifiId) throws IOException {
         if (this.wifiIds.remove("" + wifiId)){
             this.crypto.saveToFile(SAFE_WIFIS_FILE, String.join(",", this.wifiIds).getBytes());
         }
-        return true;
 
     }
 
@@ -268,7 +268,7 @@ public class DrawerActivity extends AppCompatActivity {
                 ((TextView) findViewById(R.id.OTPCode)).setText(this.current);
                 ((ProgressBar) findViewById(R.id.codeProgress)).setProgress(progress);
             } catch (NullPointerException e) {
-                // FIXME: ignore???
+                // Just ignore because the view is not visible
             }
         });
     }
@@ -286,8 +286,8 @@ public class DrawerActivity extends AppCompatActivity {
                     this.updateOTPCode(progress);
                     Thread.sleep(SLEEP_TIME);
                 }
-            } catch (Exception e) {
-                e.printStackTrace();
+            } catch (InterruptedException e) {
+                // Ignore
             }
         }
     }
@@ -353,18 +353,26 @@ public class DrawerActivity extends AppCompatActivity {
 
             synchronized (authorizationFragment.lock) {
                 authorizationFragment.list = list;
-                    // FIXME: NOT WORKING
                     runOnUiThread(() -> {
                         try {
                             ((authorizationFragment) getSupportFragmentManager().findFragmentById(R.id.authorizationFragment)).updateView();
                         } catch(NullPointerException e) {
-                            return;
+                            // Ignore
                         }
                     });
             }
-        } catch (Exception e) {
-            // FIXME: Properly handle the exception
-            e.printStackTrace();
+        } catch (JSONException | SignatureException | IOException e) {
+            try {
+                runOnUiThread(() ->
+                        Toast.makeText(getApplicationContext(), "An error occurred, please try again later!", Toast.LENGTH_LONG).show()
+                );
+            } catch (NullPointerException f) {
+                // Ignore
+            }
+        } catch (InvalidKeyException e) {
+            throw new RuntimeException("Invalid key");
+        } catch (BadPaddingException e) {
+            throw new RuntimeException("Invalid padding");
         }
     }
 
@@ -427,10 +435,19 @@ public class DrawerActivity extends AppCompatActivity {
             if (position != -1)
                 authorizationFragment.list.remove(position);
             return true;
-        } catch (Exception e) {
-            // FIXME: Properly handle the exception
-            e.printStackTrace();
+        } catch (IOException | JSONException | SignatureException e) {
+            try {
+                runOnUiThread(() ->
+                        Toast.makeText(getApplicationContext(), "An error occurred, please try again later!", Toast.LENGTH_LONG).show()
+                );
+            } catch (NullPointerException f) {
+                // Ignore
+            }
             return false;
+        } catch (InvalidKeyException e) {
+            throw new RuntimeException("Invalid key");
+        } catch (BadPaddingException e) {
+            throw new RuntimeException("Invalid padding");
         }
     }
 
