@@ -197,7 +197,7 @@ public class authorizationFragment extends Fragment {
                 });
             } else {
                 getActivity().runOnUiThread(() -> {
-                    Toast.makeText(getContext(), "An error occured, please try again later!", Toast.LENGTH_LONG).show();
+                    Toast.makeText(getContext(), "An error occurred, please try again later!", Toast.LENGTH_LONG).show();
                 });
             }
         }
@@ -217,7 +217,7 @@ public class authorizationFragment extends Fragment {
                 }
             } else {
                 getActivity().runOnUiThread(() -> {
-                    Toast.makeText(getContext(), "An error occured, please try again later!", Toast.LENGTH_LONG).show();
+                    Toast.makeText(getContext(), "An error occurred, please try again later!", Toast.LENGTH_LONG).show();
                 });
             }
         }
