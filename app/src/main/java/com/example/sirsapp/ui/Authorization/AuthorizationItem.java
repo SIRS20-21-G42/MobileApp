@@ -3,6 +3,9 @@ package com.example.sirsapp.ui.Authorization;
 import java.text.SimpleDateFormat;
 import java.util.Calendar;
 
+/**
+ * represents an item to be displayed on the authorization list
+ */
 public class AuthorizationItem {
     // base item to be represented in the screen
 
@@ -17,10 +20,20 @@ public class AuthorizationItem {
         this.hash = hash;
     }
 
+    /**
+     * gets the hash of the item
+     *
+     * @return hash of the item
+     */
     public String getHash() {
         return this.hash;
     }
 
+    /**
+     * gets the date of the item
+     *
+     * @return date of the item
+     */
     public String getDate() {
         return this.date;
     }

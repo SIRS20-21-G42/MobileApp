@@ -64,12 +64,21 @@ public class authorizationFragment extends Fragment {
         return view;
     }
 
+    /**
+     * updates the current item view by setting a new adapter with the new list
+     *
+     */
     public void updateView() {
         // sending the list to the adapter
         this.recyclerAdapter = new AuthorizationAdapter(getActivity(), list);
         recyclerView.setAdapter(this.recyclerAdapter);
     }
 
+    /**
+     * Create the on click listeners for the items in the view
+     *
+     * @param view: current view
+     */
     private void setupOnClickButtons(View view) {
         // setting up the buttons for the interface
         this.recyclerAdapter.setOnItemClickListener(new AuthorizationAdapter.OnItemClickListener() {
@@ -101,6 +110,11 @@ public class authorizationFragment extends Fragment {
         });
     }
 
+    /**
+     * shows the dialog box  for a QR code read
+     *
+     * @param text: text inside the QR code
+     */
     private void showQRcodeDialog(String text) {
         // show confirmation dialog for acceptance of item
         String dialogText = "Are you sure you want to ACCEPT the item:\n" + text + "\n";
@@ -117,6 +131,12 @@ public class authorizationFragment extends Fragment {
         dialog.show(getParentFragmentManager(), "item dialog");
     }
 
+    /**
+     * reads a string from a QR code
+     *
+     * @return string contained inside the QR code
+     * @throws IOException exception with the QR code file
+     */
     private String readQRcode() throws IOException {
 
         Bitmap bMap = getImage();
@@ -141,6 +161,12 @@ public class authorizationFragment extends Fragment {
         return text;
     }
 
+    /**
+     * get a bit map of the image "qr.png" in the app's files folder
+     *
+     * @return bitmap of the read image
+     * @throws IOException error with the image file to read from
+     */
     private Bitmap getImage() throws IOException {
         File file = new File(getContext().getFilesDir(), IMAGE_FILE_NAME);
         BufferedInputStream buf =  new BufferedInputStream(new FileInputStream(file));
@@ -149,6 +175,11 @@ public class authorizationFragment extends Fragment {
         return BitmapFactory.decodeByteArray(bMapArray, 0, bMapArray.length);
     }
 
+    /**
+     * displays the information dialog for an item
+     *
+     * @param position: position in the list of the item to be displayed
+     */
     private void showPosition(int position){
         // shows the hash for a position
         AuthorizationItem item = list.get(position);
@@ -156,6 +187,11 @@ public class authorizationFragment extends Fragment {
         dialog.show(getParentFragmentManager(), "item dialog");
     }
 
+    /**
+     * accept button for an item was pressed, show confirmation dialog
+     *
+     * @param position: position in the list of the item to be accepted
+     */
     private void acceptButtonPressed(int position){
         // show confirmation dialog for acceptance of item
         AuthorizationItem item = list.get(position);
@@ -171,6 +207,11 @@ public class authorizationFragment extends Fragment {
         dialog.show(getParentFragmentManager(), "item dialog");
     }
 
+    /**
+     * decline button for an item was pressed, show confirmation dialog
+     *
+     * @param position: position in the list of the item to be declined
+     */
     private void declineButtonPressed(int position){
         // show confirmation dialog for decline of item
         AuthorizationItem item = list.get(position);
@@ -186,6 +227,11 @@ public class authorizationFragment extends Fragment {
         dialog.show(getParentFragmentManager(), "item dialog");
     }
 
+    /**
+     * confirmation button for acceptance was pressed, send acceptance to auth
+     *
+     * @param position: position in the list of the item to be accepted
+     */
     public void acceptAuthorization(int position) {
         // accept authorization confirmed
         synchronized (lock) {
@@ -203,6 +249,11 @@ public class authorizationFragment extends Fragment {
         }
     }
 
+    /**
+     * confirmation button for a QR code was accepted, send acceptance to auth
+     *
+     * @param content: String with the content of the QR code to be accepted
+     */
     public void acceptAuthorizationQRcode(String content) {
         String hash = Base64.getEncoder().encodeToString(Cryptography.digest(content.getBytes()));
         synchronized (lock) {
@@ -223,6 +274,12 @@ public class authorizationFragment extends Fragment {
         }
     }
 
+    /**
+     * gets the position of the item with the hash given
+     *
+     * @param hash: hash to look for
+     * @return position of the item with the hash
+     */
     private int getHashPosition(String hash){
         for (int i = 0; i < list.size(); i++){
             if (list.get(i).getHash().equals(hash)){
@@ -232,6 +289,11 @@ public class authorizationFragment extends Fragment {
         return -1;
     }
 
+    /**
+     * confirmation button for the decline of an item was pressed, send information to auth
+     *
+     * @param position: position of the item that was declined
+     */
     public void declineAuthorization(int position) {
         // decline authorization confirmed
         synchronized (lock) {
