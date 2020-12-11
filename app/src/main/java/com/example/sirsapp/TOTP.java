@@ -1,9 +1,13 @@
 package com.example.sirsapp;
 
 import java.io.FileNotFoundException;
+import java.io.IOException;
 import java.math.BigInteger;
+import java.security.InvalidKeyException;
+import java.security.NoSuchAlgorithmException;
 import java.time.Instant;
 
+import javax.crypto.BadPaddingException;
 import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
 
@@ -20,11 +24,8 @@ public class TOTP {
 
         try {
             this.secret = this.crypto.getFromFile(Cryptography.AUTH_SHARED_KEY_FILE);
-        } catch (FileNotFoundException e) {
-            this.secret = null;
-        } catch (Exception e) {
-            // FIXME: Properly handle the exception
-            e.printStackTrace();
+        } catch (IOException | BadPaddingException e) {
+            throw new RuntimeException("Couldn't get shared secret");
         }
     }
 
@@ -59,9 +60,11 @@ public class TOTP {
             SecretKeySpec macKey = new SecretKeySpec(key, "RAW");
             mac.init(macKey);
             return mac.doFinal(text);
-        } catch(Exception e) {
-            e.printStackTrace();
+        } catch(NoSuchAlgorithmException e) {
+            // Ignore
             return null;
+        } catch (InvalidKeyException e) {
+            throw new RuntimeException("Invalid key");
         }
     }
 
@@ -99,14 +102,7 @@ public class TOTP {
 
         byte[] msg = hex2Bytes(step.toString());
 
-        byte[] hash;
-        try {
-            hash = hmac(this.secret, msg);
-        } catch (Exception e) {
-            // FIXME: Properly handle the exception
-            e.printStackTrace();
-            return null;
-        }
+        byte[] hash = hmac(this.secret, msg);
 
         // Get 4 least significant bits of HMAC
         int offset = hash[hash.length - 1] & 0xf;

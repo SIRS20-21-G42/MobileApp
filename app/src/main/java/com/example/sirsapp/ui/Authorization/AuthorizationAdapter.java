@@ -14,6 +14,9 @@ import com.example.sirsapp.R;
 
 import java.util.List;
 
+/**
+ * represents an adapter to display the different authorization items on the list and setup their buttons
+ */
 public class AuthorizationAdapter extends RecyclerView.Adapter<AuthorizationAdapter.AuthorizationViewHolder> {
     // manages the view holder objects
 
@@ -32,6 +35,9 @@ public class AuthorizationAdapter extends RecyclerView.Adapter<AuthorizationAdap
         void onItemDeny(int position);
     }
 
+    /**
+     * represents an adapter to display one authorization item on the list and setup its buttons
+     */
     public static class AuthorizationViewHolder extends RecyclerView.ViewHolder{
         // Displays a single item in the screen
 
@@ -48,6 +54,11 @@ public class AuthorizationAdapter extends RecyclerView.Adapter<AuthorizationAdap
             setupClickListeners(mListener);
         }
 
+        /**
+         * sets up the on click listeners for the view holder
+         *
+         * @param mListener: listener to be added to view holder
+         */
         private void setupClickListeners(OnItemClickListener mListener){
             // listener for the click on the item (text view)
             authorizationHash.setOnClickListener(v -> {
@@ -87,6 +98,11 @@ public class AuthorizationAdapter extends RecyclerView.Adapter<AuthorizationAdap
         this.context = context;
     }
 
+    /**
+     * sets up the on click listener for the list
+     *
+     * @param itemListener: listener to be set up with
+     */
     public void setOnItemClickListener(OnItemClickListener itemListener){
         // setting the listener
         this.listener = itemListener;

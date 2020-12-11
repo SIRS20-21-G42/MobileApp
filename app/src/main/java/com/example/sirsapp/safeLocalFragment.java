@@ -27,9 +27,6 @@ public class safeLocalFragment extends Fragment {
     @Override
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        if (getArguments() != null) {
-
-        }
     }
 
     @Override
@@ -48,6 +45,11 @@ public class safeLocalFragment extends Fragment {
         return view;
     }
 
+    /**
+     * Change the status from the current wifi
+     *
+     * @param view: button view
+     */
     public void changeLocalStatus(View view){
         Button button = view.findViewById(R.id.safeLocalButton);
         View parent_view = (View) button.getParent();
@@ -59,23 +61,37 @@ public class safeLocalFragment extends Fragment {
                 ((DrawerActivity)getActivity()).addSafeWifi(wifiId);
             else
                 ((DrawerActivity)getActivity()).removeSafeWifi(wifiId);
+            parent_view.findViewById(R.id.safeLocalProgress).setVisibility(View.VISIBLE);
             new Thread(() -> {
                 try {
                     if(!((DrawerActivity)getActivity()).updateLocalStatus(markAsSafe ? "OK" : "NO"))
-                        getActivity().runOnUiThread(() -> { Toast.makeText(getContext(), "Could not update internal server", Toast.LENGTH_LONG).show(); });
-                    getActivity().runOnUiThread( () -> updateUI(view, markAsSafe) );
+                        try {
+                            getActivity().runOnUiThread(() -> { Toast.makeText(getContext(), "Could not update server, attempting later!", Toast.LENGTH_LONG).show(); });
+                        } catch (NullPointerException ignored) {}
                 } catch (Exception e) {
                     e.printStackTrace();
-                    getActivity().runOnUiThread(() -> updateUI(view, !markAsSafe) );
+                    try {
+                        getActivity().runOnUiThread(() -> { Toast.makeText(getContext(), "Could not update server, attempting later!", Toast.LENGTH_LONG).show(); });
+                    } catch (NullPointerException ignored) {}
+                } finally {
+                    try {
+                        getActivity().runOnUiThread(() -> { parent_view.findViewById(R.id.safeLocalProgress).setVisibility(View.GONE); });
+                    } catch (NullPointerException ignored) {}
                 }
-            }).start();
-            // send information to auth
+            }).start(); // send information to auth
+            updateUI(view, markAsSafe);
         } catch (Exception e) {
-            getActivity().runOnUiThread(() -> { Toast.makeText(getContext(), "An error occurred, please try again!", Toast.LENGTH_LONG).show(); });
-            updateUI(view, !markAsSafe);
+            e.printStackTrace();
+            Toast.makeText(getContext(), "An error occurred, please try again!", Toast.LENGTH_LONG).show();
         }
     }
 
+    /**
+     * Updates the UI according to the given parameters
+     *
+     * @param view: button view
+     * @param safe: true if the current wifi is safe, false otherwise
+     */
     private void updateUI(View view, boolean safe) {
         Button button = view.findViewById(R.id.safeLocalButton);
         View parent_view = (View) button.getParent();

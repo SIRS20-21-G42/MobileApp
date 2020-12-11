@@ -10,16 +10,28 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatDialogFragment;
 
+/**
+ * represents the dialog boxes in the authorization list
+ */
 public class AuthorizationDialog extends AppCompatDialogFragment {
 
     private static final String INFORMATIONAL = "informational";
     public static final String ACCEPT = "accept";
     public static final String DECLINE = "decline";
 
+    // item position in authorization list, -1 if QR code
     private final int position;
+
+    // title of the dialog
     private final String title;
+
+    // text of the dialog
     private final String text;
+
+    // type of the dialog to show(Informational-1 "ok" button, ACCEPT-2 buttons green "confirm" button, DECLINE- 2 buttons red "confirm" button)
     private final String type;
+
+    //listener for button press
     private final DialogConfirmation listener;
 
     public interface DialogConfirmation {

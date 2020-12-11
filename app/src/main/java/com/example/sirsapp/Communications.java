@@ -11,9 +11,15 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.net.HttpURLConnection;
+import java.net.InetSocketAddress;
+import java.net.MalformedURLException;
+import java.net.ProtocolException;
 import java.net.Socket;
 import java.net.URL;
+import java.security.KeyManagementException;
 import java.security.KeyStore;
+import java.security.KeyStoreException;
+import java.security.NoSuchAlgorithmException;
 import java.security.cert.Certificate;
 
 import javax.net.ssl.HttpsURLConnection;
@@ -44,12 +50,13 @@ public class Communications {
      * @param hostname: the address of the host to connect to
      * @param port: the port in the host to connect to
      * @return an open socket to hostname:port
-     * @throws Exception for now throws all the occurred exceptions
+     * @throws IOException if an error occurs during connection
      */
-    public static Socket openConnection(String hostname, int port) throws Exception {
-        Socket socket = new Socket(hostname, port);
-
+    public static Socket openConnection(String hostname, int port) throws IOException {
+        Socket socket = new Socket();
         socket.setTcpNoDelay(true);
+        socket.connect(new InetSocketAddress(hostname, port), 5000);
+
 
         return socket;
     }
@@ -100,18 +107,20 @@ public class Communications {
      * @param csrFilename: name of the file containing the CSR
      * @param caCert: CA certificate
      * @return true if the certificate was received correctly
-     * @throws Exception for now throws all the occurred exceptions
+     * @throws IOException if an I/O error occurs
      */
-    public boolean getCertificateFromCA(String csrFilename, Certificate caCert) throws Exception {
+    public boolean getCertificateFromCA(String csrFilename, Certificate caCert) throws IOException {
         // create keystore with ca certificate to use for connection
         KeyStore ks = Cryptography.createKeyStore(caCert);
-        if (ks == null)
-            return false;
 
         // setup the HTTPS connection to ca
-        HttpsURLConnection conn = setupHttpsURLConnection(ks);
-        if (conn == null)
-            return false;
+        HttpsURLConnection conn;
+
+        try {
+            conn = setupHttpsURLConnection(ks);
+        } catch (KeyManagementException | KeyStoreException e) {
+            throw new RuntimeException("Could not create chain of trust");
+        }
 
         // send the request to the CA
         sendCARequest(csrFilename, conn);
@@ -132,26 +141,33 @@ public class Communications {
      *
      * @param ks: key store to use for the trusted certificates in the connection
      * @return connection created
-     * @throws Exception for now throws all the occurred exceptions
+     * @throws IOException if connection couldn't be established
+     * @throws KeyStoreException if couldn't create chain of trust
+     * @throws KeyManagementException if couldn't apply chain of trust
      */
-    private static HttpsURLConnection setupHttpsURLConnection(KeyStore ks) throws Exception {
+    private static HttpsURLConnection setupHttpsURLConnection(KeyStore ks) throws IOException, KeyStoreException, KeyManagementException {
         // Creating a TrustManager and initializing with the KeyStore
-        String tmfAlgorithm = TrustManagerFactory.getDefaultAlgorithm();
-        TrustManagerFactory tmf = TrustManagerFactory.getInstance(tmfAlgorithm);
-        tmf.init(ks);
+        try {
+            String tmfAlgorithm = TrustManagerFactory.getDefaultAlgorithm();
+            TrustManagerFactory tmf = TrustManagerFactory.getInstance(tmfAlgorithm);
+            tmf.init(ks);
 
-        SSLContext cont = SSLContext.getInstance("TLS");
-        cont.init(null, tmf.getTrustManagers(), null);
+            SSLContext cont = SSLContext.getInstance("TLS");
+            cont.init(null, tmf.getTrustManagers(), null);
 
-        URL url = new URL("https://" + CA_HOSTNAME + ":" + CA_PORT + "/sign");
-        HttpsURLConnection httpsConn = (HttpsURLConnection) url.openConnection();
-        httpsConn.setSSLSocketFactory(cont.getSocketFactory());
+            URL url = new URL("https://" + CA_HOSTNAME + ":" + CA_PORT + "/sign");
+            HttpsURLConnection httpsConn = (HttpsURLConnection) url.openConnection();
+            httpsConn.setSSLSocketFactory(cont.getSocketFactory());
 
-        // Setting a verifier to allow connections to the host
-        httpsConn.setHostnameVerifier((hostname, sslSession) -> hostname.equals(CA_HOSTNAME));
-        httpsConn.setUseCaches(false);
-        httpsConn.setDoOutput(true);
-        return httpsConn;
+            // Setting a verifier to allow connections to the host
+            httpsConn.setHostnameVerifier((hostname, sslSession) -> hostname.equals(CA_HOSTNAME));
+            httpsConn.setUseCaches(false);
+            httpsConn.setDoOutput(true);
+            return httpsConn;
+        } catch (NoSuchAlgorithmException | MalformedURLException e) {
+            // Not going to happen
+            throw new RuntimeException("Invalid parameters setting up HTTPS");
+        }
     }
 
     /**
@@ -159,11 +175,17 @@ public class Communications {
      *
      * @param csrFilename: name of the file containing the CSR
      * @param httpsConn: connection object with the connection parameters setup
-     * @throws Exception for now throws all the occurred exceptions
+     * @throws IOException for now throws all the occurred exceptions
      */
-    private void sendCARequest(String csrFilename, HttpsURLConnection httpsConn) throws Exception {
+    private void sendCARequest(String csrFilename, HttpsURLConnection httpsConn) throws IOException {
         // Setting the headers of the request
-        httpsConn.setRequestMethod("POST");
+        try {
+            httpsConn.setRequestMethod("POST");
+        } catch (ProtocolException e) {
+            // Not going to happen
+            throw new RuntimeException("Wrong method for connection");
+        }
+
         httpsConn.setRequestProperty("Connection", "Keep-Alive");
         httpsConn.setRequestProperty("Cache-Control", "no-cache");
         httpsConn.setRequestProperty(
@@ -196,9 +218,9 @@ public class Communications {
      * Gets the response from the CA and stores the certificate in a file if successful request
      *
      * @param httpsConn: connection created with the CA
-     * @throws Exception for now throws all the occurred exceptions
+     * @throws IOException if an I/O error occurs
      */
-    private void getCAResponse(HttpsURLConnection httpsConn) throws Exception {
+    private void getCAResponse(HttpsURLConnection httpsConn) throws IOException {
         String fileName = Cryptography.APP_CERT_FILE;
         String disposition = httpsConn.getHeaderField("Content-Disposition");
 

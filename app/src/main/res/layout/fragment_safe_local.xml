@@ -28,6 +28,14 @@
         android:paddingVertical="15sp"
         android:paddingHorizontal="25sp"
         android:layout_centerInParent="true"/>
+    <ProgressBar
+        android:id="@+id/safeLocalProgress"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:indeterminate="true"
+        android:layout_above="@id/safeLocalIcon"
+        android:layout_centerHorizontal="true"
+        android:visibility="gone"/>
     <ImageView
         android:id="@+id/safeLocalIcon"
         android:layout_width="150sp"
